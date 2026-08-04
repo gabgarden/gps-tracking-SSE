@@ -1,0 +1,44 @@
+services:
+  redis:
+    image: redis:alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - rede_sse
+
+  app:
+    image: node:20-alpine
+    container_name: app
+    volumes:
+      - .:/back
+      - /back/node_modules
+    working_dir: /back
+    command: sh -c "npm install && npx tsx watch src/main/index.ts"
+    ports:
+      - "8080:8080"
+    environment:
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    networks:
+      - rede_sse
+
+  publisher:
+    image: node:20-alpine
+    container_name: publisher
+    volumes:
+      - .:/back
+      - /back/node_modules
+    working_dir: /back
+    command: sh -c "npm install && npx tsx watch publisher-simulator.ts"
+    environment:
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    networks:
+      - rede_sse
+
+networks:
+  rede_sse:
+    driver: bridge
