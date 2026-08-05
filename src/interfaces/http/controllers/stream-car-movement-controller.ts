@@ -1,5 +1,5 @@
-import { Request, Response } from 'express';
-import { StreamCarMovements } from '../../application/use-cases/stream-car-movements.ts';
+import type { Request, Response } from 'express';
+import { StreamCarMovements } from '../../../application/use-cases/stream-car-movements.js';
 
 
 export class StreamCarMovementsController {

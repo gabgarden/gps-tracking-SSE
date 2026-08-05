@@ -1,37 +1,31 @@
-import { createClient } from 'redis';
+const TELEMETRY_URL = process.env.TELEMETRY_URL ?? 'http://localhost:8080/telemetry';
 
-const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379';
-const NOTIFICATIONS_CHANNEL = 'notifications';
-
-const publisher = createClient({ url: REDIS_URL });
-publisher.on('error', (err) => console.error('Erro no Redis Publisher:', err));
-
-// Lista de 5 rotas em São Paulo: [ [lng, lat] de início, [lng, lat] de destino ]
+// Lista de 5 rotas em Campos dos Goytacazes ao redor do IFF Centro: [ [lng, lat] de início, [lng, lat] de destino ]
 const ROUTES_CONFIG = [
   {
-    name: 'Praça da Sé -> MASP',
-    start: [-46.633309, -23.55052],
-    end: [-46.655881, -23.561414],
+    name: 'IFF Centro -> Boulevard Shopping',
+    start: [-41.3245, -21.7545], // IFF Centro (Rua Doutor Siqueira)
+    end: [-41.3392, -21.7681],   // Boulevard Shopping
   },
   {
-    name: 'Parque Ibirapuera -> Pinheiros',
-    start: [-46.657634, -23.587416],
-    end: [-46.691763, -23.567215],
+    name: 'Rodoviária Roberto Silveira -> IFF Centro',
+    start: [-41.3283, -21.7588], // Rodoviária
+    end: [-41.3245, -21.7545],   // IFF Centro
   },
   {
-    name: 'Estação da Luz -> Allianz Parque',
-    start: [-46.635319, -23.536481],
-    end: [-46.678722, -23.527537],
+    name: 'Jardim do Liceu -> Pelinca',
+    start: [-41.3208, -21.7552], // Jardim do Liceu
+    end: [-41.3321, -21.7635],   // Av. Pelinca
   },
   {
-    name: 'Tatuapé -> Mooca',
-    start: [-46.576201, -23.540452],
-    end: [-46.597523, -23.569801],
+    name: 'Cais do Lapa -> UENF',
+    start: [-41.3189, -21.7482], // Beira-Rio / Cais do Lapa
+    end: [-41.2934, -21.7612],   // UENF
   },
   {
-    name: 'Brooklin -> Faria Lima',
-    start: [-46.689102, -23.612015],
-    end: [-46.682103, -23.582312],
+    name: 'Av. 28 de Março (Parque Tamandaré) -> IFF Centro',
+    start: [-41.3350, -21.7601], // Parque Tamandaré
+    end: [-41.3245, -21.7545],   // IFF Centro
   },
 ];
 
@@ -43,14 +37,8 @@ interface RouteResponse {
   }>;
 }
 
-/**
- * Cache local das rotas já buscadas no OSRM para evitar chamadas repetidas na rede
- */
 const routesCache: Map<number, [number, number][]> = new Map();
 
-/**
- * Busca a rota no OSRM (ou retorna do cache se já foi carregada)
- */
 async function getRouteCoordinates(routeIndex: number): Promise<[number, number][]> {
   if (routesCache.has(routeIndex)) {
     return routesCache.get(routeIndex)!;
@@ -71,32 +59,26 @@ async function getRouteCoordinates(routeIndex: number): Promise<[number, number]
   return coordinates;
 }
 
-/**
- * Seleciona um índice de rota aleatório
- */
 function getRandomRouteIndex(currentIndex?: number): number {
   let newIndex: number;
   do {
     newIndex = Math.floor(Math.random() * ROUTES_CONFIG.length);
-  } while (newIndex === currentIndex && ROUTES_CONFIG.length > 1); // Evita repetir a mesma rota consecutivamente
+  } while (newIndex === currentIndex && ROUTES_CONFIG.length > 1);
   return newIndex;
 }
 
 async function startSimulation() {
-  await publisher.connect();
-  console.log(`Publisher conectado ao Redis! Publicando no canal "${NOTIFICATIONS_CHANNEL}"...`);
+  console.log(`Simulador iniciado. Enviando telemetria para ${TELEMETRY_URL}...`);
 
   let currentRouteIndex = getRandomRouteIndex();
   let routeCoordinates: [number, number][] = [];
   let stepIndex = 0;
 
   try {
-    // Carrega a primeira rota sorteada
     console.log(`Carregando Rota #${currentRouteIndex + 1}: ${ROUTES_CONFIG[currentRouteIndex].name}`);
     routeCoordinates = await getRouteCoordinates(currentRouteIndex);
 
     setInterval(async () => {
-      // Se concluiu a rota atual, sorteia uma nova
       if (stepIndex >= routeCoordinates.length) {
         currentRouteIndex = getRandomRouteIndex(currentRouteIndex);
         console.log(`\nRota finalizada! Sorteando Rota #${currentRouteIndex + 1}: ${ROUTES_CONFIG[currentRouteIndex].name}`);
@@ -111,10 +93,27 @@ async function startSimulation() {
       }
 
       const [lng, lat] = routeCoordinates[stepIndex];
-      const payload = JSON.stringify({ lat, lng });
+      const [destinationLng, destinationLat] = ROUTES_CONFIG[currentRouteIndex].end;
+      const telemetry = {
+        orderId: `simulated-order-${currentRouteIndex + 1}`,
+        driverId: 'simulated-driver-1',
+        lat,
+        lng,
+        destinationLat,
+        destinationLng,
+      };
 
-      await publisher.publish(NOTIFICATIONS_CHANNEL, payload);
-      console.log(`[Rota ${currentRouteIndex + 1} - Passo ${stepIndex + 1}/${routeCoordinates.length}] Posição enviada:`, payload);
+      try {
+        const response = await fetch(TELEMETRY_URL, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(telemetry),
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        console.log(`[Rota ${currentRouteIndex + 1} - Passo ${stepIndex + 1}/${routeCoordinates.length}] Telemetria enviada.`);
+      } catch (error) {
+        console.error('Falha ao enviar telemetria:', error);
+      }
 
       stepIndex++;
     }, 1500);
@@ -124,4 +123,4 @@ async function startSimulation() {
   }
 }
 
-void startSimulation();                     
+void startSimulation();

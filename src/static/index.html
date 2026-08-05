@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rastreamento em Tempo Real - Delivery</title>
+    <title>Rastreamento em Tempo Real - Delivery Campos</title>
     
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -124,12 +124,15 @@
             color: #374151;
         }
 
-        /* Animação CSS no Marcador para Suavizar Movimento */
+        .distance {
+            font-weight: 700;
+            color: #c2410c;
+        }
+
         .leaflet-marker-icon {
             transition: transform 1.2s linear;
         }
 
-        /* Estilo do Ícone de Entregador Customizado */
         .delivery-icon {
             background: #ff5722;
             border: 2px solid white;
@@ -148,7 +151,7 @@
 
     <div class="container">
         <div class="header">
-            <h2>🛵 Entrega em Tempo Real</h2>
+            <h2>🛵 Entrega em Tempo Real - Campos</h2>
             <div id="badge" class="badge">
                 <span class="status-dot"></span>
                 <span id="status-text">Conectando...</span>
@@ -160,6 +163,7 @@
         <div class="info-card">
             <span>Última atualização recebida</span>
             <span id="coords" class="coords">--</span>
+            <span id="distance" class="distance">Distância restante: --</span>
         </div>
     </div>
 
@@ -170,18 +174,17 @@
         const statusText = document.getElementById('status-text');
         const badge = document.getElementById('badge');
         const coordsDiv = document.getElementById('coords');
+        const distanceDiv = document.getElementById('distance');
 
-        // 1. Inicializa o mapa centralizado em São Paulo com estilo moderno
-        const map = L.map('map', { zoomControl: false }).setView([-23.5505, -46.6333], 15);
+        // 1. Inicializa o mapa centralizado no IFF Campus Centro (Campos dos Goytacazes)
+        const map = L.map('map', { zoomControl: false }).setView([-21.7545, -41.3245], 15);
         L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-        // Camada do mapa limpa (CartoDB Positron)
         L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
             attribution: '© OpenStreetMap contributors, © CARTO',
             maxZoom: 19
         }).addTo(map);
 
-        // 2. Ícone de Entregador com DivIcon (Emoji de Moto estilizado)
         const deliveryIcon = L.divIcon({
             className: 'delivery-icon',
             html: '🛵',
@@ -189,7 +192,6 @@
             iconAnchor: [21, 21]
         });
 
-        // 3. Trajeto (Polyline) percorrido
         const polyline = L.polyline([], {
             color: '#ff5722',
             weight: 5,
@@ -200,9 +202,7 @@
 
         let deliveryMarker = null;
 
-        // 4. Conecta ao SSE
         const eventSource = new EventSource('http://localhost:8080/stream');
-
         eventSource.addEventListener('carMoved', (event) => {
             try {
                 const eventData = JSON.parse(event.data);
@@ -210,7 +210,11 @@
                     ? JSON.parse(eventData.payload) 
                     : (eventData.payload || eventData);
 
-                const { lat, lng } = coords;
+                // O contrato atual entrega a posição em `position`; o fallback
+                // mantém a tela compatível com mensagens Redis antigas.
+                const position = coords.position || coords;
+                const { lat, lng } = position;
+                const { remainingDistanceKm } = coords;
 
                 if (lat === undefined || lng === undefined) {
                     throw new Error('Coordenadas lat/lng ausentes.');
@@ -218,21 +222,17 @@
 
                 const newLatLng = [lat, lng];
 
-                // Atualiza as coordenadas na tela
                 coordsDiv.textContent = `Lat: ${lat.toFixed(5)} | Lng: ${lng.toFixed(5)}`;
-
-                // Adiciona o novo ponto à linha de rastro
+                distanceDiv.textContent = Number.isFinite(remainingDistanceKm)
+                    ? `Distância restante: ${remainingDistanceKm.toFixed(3)} km`
+                    : 'Distância restante: --';
                 polyline.addLatLng(newLatLng);
 
                 if (!deliveryMarker) {
-                    // Cria o marcador na primeira posição recebida
                     deliveryMarker = L.marker(newLatLng, { icon: deliveryIcon }).addTo(map);
                     map.setView(newLatLng, 16);
                 } else {
-                    // Atualiza a posição (o CSS 'transition: transform' suaviza o movimento)
                     deliveryMarker.setLatLng(newLatLng);
-                    
-                    // Centraliza suavemente o mapa
                     map.panTo(newLatLng, { animate: true, duration: 1.2 });
                 }
             } catch (err) {

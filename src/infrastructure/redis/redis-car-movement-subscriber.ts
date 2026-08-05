@@ -4,7 +4,7 @@ import type {
   CarMovementSubscription,
 } from '../../application/ports/car-movement-subscriber.js';
 
-const NOTIFICATIONS_CHANNEL = 'notifications';
+const CAR_MOVEMENTS_CHANNEL = process.env.CAR_MOVEMENTS_CHANNEL ?? 'car-movements';
 
 export class RedisCarMovementSubscriber implements CarMovementSubscriber {
   constructor(private readonly client: RedisClientType) {}
@@ -14,13 +14,13 @@ export class RedisCarMovementSubscriber implements CarMovementSubscriber {
     subscriber.on('error', (error) => console.error('Redis subscriber error', error));
     await subscriber.connect();
 
-    await subscriber.subscribe(NOTIFICATIONS_CHANNEL, (payload) => onMovement({ payload }));
+    await subscriber.subscribe(CAR_MOVEMENTS_CHANNEL, (payload) => onMovement({ payload }));
 
     return {
       async close() {
         if (!subscriber.isOpen) return;
 
-        await subscriber.unsubscribe(NOTIFICATIONS_CHANNEL);
+        await subscriber.unsubscribe(CAR_MOVEMENTS_CHANNEL);
         await subscriber.disconnect();
       },
     };

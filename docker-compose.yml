@@ -1,9 +1,31 @@
+version: '3.8'
+
 services:
   redis:
     image: redis:alpine
     container_name: redis
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - rede_sse
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s # Evita marcar como unhealthy enquanto o RabbitMQ inicia a Mnesia/Erlang
     networks:
       - rede_sse
 
@@ -12,15 +34,48 @@ services:
     container_name: app
     volumes:
       - .:/back
-      - /back/node_modules
+      - node_modules_app:/back/node_modules
     working_dir: /back
-    command: sh -c "npm install && npx tsx watch src/main/index.ts"
+    command: sh -c "npm install && npx tsx watch src/main/main.ts"
     ports:
       - "8080:8080"
     environment:
       - REDIS_URL=redis://redis:6379
+      - CAR_MOVEMENTS_CHANNEL=car-movements
+      - AUDIT_AMQP_URL=amqp://rabbitmq:5672
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:8080/').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - rede_sse
+
+  audit:
+    image: node:20-alpine
+    container_name: audit
+    volumes:
+      - .:/back
+      - node_modules_audit:/back/node_modules
+    working_dir: /back
+    command: sh -c "npm install && npx tsx watch src/audit/main.ts"
+    environment:
+      - AUDIT_AMQP_URL=amqp://rabbitmq:5672
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
     networks:
       - rede_sse
 
@@ -29,15 +84,23 @@ services:
     container_name: publisher
     volumes:
       - .:/back
-      - /back/node_modules
+      - node_modules_publisher:/back/node_modules
     working_dir: /back
     command: sh -c "npm install && npx tsx watch publisher-simulator.ts"
     environment:
-      - REDIS_URL=redis://redis:6379
+      - TELEMETRY_URL=http://app:8080/telemetry
     depends_on:
-      - redis
+      app:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - rede_sse
+
+volumes:
+  node_modules_app:
+  node_modules_audit:
+  node_modules_publisher:
 
 networks:
   rede_sse:
