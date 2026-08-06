@@ -122,4 +122,4 @@ adaptadores de infraestrutura ou interface.
 
 - Testes dos casos de uso podem usar implementações falsas das portas.
 - Redis ou AMQP podem ser trocados sem reescrever as regras de negócio.
-- A composição das dependências fica concentrada em `src/main/main.ts`.
+- A composição das dependências fica concentrada em `services/*/src/main/main.ts`.

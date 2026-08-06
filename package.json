@@ -1,35 +1,16 @@
 {
-  "name": "back",
+  "name": "gps-tracking-sse",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "directories": {
-    "test": "test"
-  },
+  "private": true,
+  "workspaces": [
+    "shared",
+    "services/*"
+  ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "tsx src/main/main.ts",
-    "build": "tsc",
-    "typecheck": "tsc --noEmit",
-    "start": "node dist/main/main.js"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "dependencies": {
-    "amqplib": "^2.0.1",
-    "cors": "^2.8.6",
-    "express": "^5.2.1",
-    "ioredis": "^5.11.1",
-    "redis": "^6.2.0"
-  },
-  "devDependencies": {
-    "@types/amqplib": "^0.10.8",
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.6",
-    "@types/node": "^26.1.2",
-    "tsx": "^4.23.5",
-    "typescript": "^7.0.2"
+    "dev:backend": "npm run dev -w @gps-tracking/backend",
+    "dev:audit": "npm run dev -w @gps-tracking/audit",
+    "dev:publisher": "npm run dev -w @gps-tracking/publisher",
+    "typecheck": "npm run typecheck -w @gps-tracking/backend && npm run typecheck -w @gps-tracking/audit && npm run typecheck -w @gps-tracking/publisher",
+    "build": "npm run build -w @gps-tracking/backend && npm run build -w @gps-tracking/audit && npm run build -w @gps-tracking/publisher"
   }
 }

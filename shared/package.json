@@ -1,0 +1,9 @@
+{
+  "name": "@gps-tracking/shared",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "exports": {
+    "./audit": "./src/audit/index.ts"
+  }
+}

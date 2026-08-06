@@ -1,0 +1,27 @@
+{
+  "name": "@gps-tracking/backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "dev": "tsx watch src/main/main.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "start": "node dist/main/main.js"
+  },
+  "dependencies": {
+    "@gps-tracking/shared": "*",
+    "amqplib": "^2.0.1",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "redis": "^6.2.0"
+  },
+  "devDependencies": {
+    "@types/amqplib": "^0.10.8",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.1.2",
+    "tsx": "^4.23.5",
+    "typescript": "^7.0.2"
+  }
+}
