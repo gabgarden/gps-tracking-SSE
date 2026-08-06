@@ -19,7 +19,9 @@ feitos por HTTP convencional.
 
 Usar SSE em `GET /stream`. Cada atualização é enviada como evento `carMoved`.
 O dashboard usa `EventSource` e atualiza o Leaflet a partir de
-`position.lat`, `position.lng` e `remainingDistanceKm`.
+`orderId`, `position.lat`, `position.lng` e `remainingDistanceKm`.
+A troca de trilha no mapa é detectada pela mudança de `orderId` (cada
+pedido simulado corresponde a uma rota distinta).
 
 ### Consequências
 

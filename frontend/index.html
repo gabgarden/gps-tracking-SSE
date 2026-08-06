@@ -1,252 +1,71 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rastreamento em Tempo Real - Delivery Campos</title>
-    
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-    <!-- CSS do Leaflet -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Inter', sans-serif;
-        }
-
-        body {
-            background-color: #f4f6f8;
-            color: #1a202c;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 20px;
-            min-height: 100vh;
-        }
-
-        .container {
-            width: 100%;
-            max-width: 900px;
-            background: #ffffff;
-            border-radius: 16px;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
-            padding: 24px;
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-            gap: 12px;
-        }
-
-        h2 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: #111827;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 0.875rem;
-            font-weight: 500;
-            background-color: #f3f4f6;
-            color: #4b5563;
-            transition: all 0.3s ease;
-        }
-
-        .badge.online {
-            background-color: #def7ec;
-            color: #03543f;
-        }
-
-        .badge.error {
-            background-color: #fde8e8;
-            color: #9b1c1c;
-        }
-
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background-color: #9ca3af;
-        }
-
-        .badge.online .status-dot {
-            background-color: #0e9f6e;
-            box-shadow: 0 0 8px #0e9f6e;
-        }
-
-        .badge.error .status-dot {
-            background-color: #f05252;
-        }
-
-        #map {
-            height: 520px;
-            width: 100%;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
-        }
-
-        .info-card {
-            margin-top: 16px;
-            padding: 16px;
-            background-color: #f9fafb;
-            border-radius: 8px;
-            border: 1px solid #e5e7eb;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.875rem;
-            color: #6b7280;
-        }
-
-        .coords {
-            font-family: monospace;
-            font-weight: 600;
-            color: #374151;
-        }
-
-        .distance {
-            font-weight: 700;
-            color: #c2410c;
-        }
-
-        .leaflet-marker-icon {
-            transition: transform 1.2s linear;
-        }
-
-        .delivery-icon {
-            background: #ff5722;
-            border: 2px solid white;
-            border-radius: 50%;
-            box-shadow: 0 4px 12px rgba(255, 87, 34, 0.4);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 20px;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rastreamento em Tempo Real</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:Inter,sans-serif}
+body{background:linear-gradient(135deg,#eef2ff,#dbeafe,#f8fafc);padding:20px}
+.container{max-width:1400px;margin:auto;position:relative}
+#map{height:88vh;border-radius:18px}
+.sidebar{position:absolute;top:20px;left:20px;z-index:999;background:rgba(255,255,255,.9);backdrop-filter:blur(10px);padding:18px;border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.15);width:280px}
+.item{margin-top:12px}
+.badge{display:inline-block;padding:6px 10px;border-radius:20px;background:#e5e7eb}
+.delivery-icon div{width:46px;height:46px;border-radius:50%;background:#ff5722;color:#fff;display:flex;align-items:center;justify-content:center;font-size:24px;animation:pulse 1.5s infinite}
+@keyframes pulse{0%{transform:scale(1)}70%{transform:scale(1.12)}100%{transform:scale(1)}}
+</style>
 </head>
-
 <body>
-
-    <div class="container">
-        <div class="header">
-            <h2>🛵 Entrega em Tempo Real - Campos</h2>
-            <div id="badge" class="badge">
-                <span class="status-dot"></span>
-                <span id="status-text">Conectando...</span>
-            </div>
-        </div>
-
-        <div id="map"></div>
-
-        <div class="info-card">
-            <span>Última atualização recebida</span>
-            <span id="coords" class="coords">--</span>
-            <span id="distance" class="distance">Distância restante: --</span>
-        </div>
-    </div>
-
-    <!-- JS do Leaflet -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-    <script>
-        const statusText = document.getElementById('status-text');
-        const badge = document.getElementById('badge');
-        const coordsDiv = document.getElementById('coords');
-        const distanceDiv = document.getElementById('distance');
-
-        const map = L.map('map', { zoomControl: false }).setView([-21.7545, -41.3245], 15);
-        L.control.zoom({ position: 'bottomright' }).addTo(map);
-
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            attribution: '© OpenStreetMap contributors, © CARTO',
-            maxZoom: 19
-        }).addTo(map);
-
-        const deliveryIcon = L.divIcon({
-            className: 'delivery-icon',
-            html: '🛵',
-            iconSize: [42, 42],
-            iconAnchor: [21, 21]
-        });
-
-        const polyline = L.polyline([], {
-            color: '#ff5722',
-            weight: 5,
-            opacity: 0.7,
-            lineCap: 'round',
-            lineJoin: 'round'
-        }).addTo(map);
-
-        let deliveryMarker = null;
-
-        const eventSource = new EventSource('/stream');
-        eventSource.addEventListener('carMoved', (event) => {
-            try {
-                const eventData = JSON.parse(event.data);
-                const coords = typeof eventData.payload === 'string' 
-                    ? JSON.parse(eventData.payload) 
-                    : (eventData.payload || eventData);
-
-                const position = coords.position || coords;
-                const { lat, lng } = position;
-                const { remainingDistanceKm } = coords;
-
-                if (lat === undefined || lng === undefined) {
-                    throw new Error('Coordenadas lat/lng ausentes.');
-                }
-
-                const newLatLng = [lat, lng];
-
-                coordsDiv.textContent = `Lat: ${lat.toFixed(5)} | Lng: ${lng.toFixed(5)}`;
-                distanceDiv.textContent = Number.isFinite(remainingDistanceKm)
-                    ? `Distância restante: ${remainingDistanceKm.toFixed(3)} km`
-                    : 'Distância restante: --';
-                polyline.addLatLng(newLatLng);
-
-                if (!deliveryMarker) {
-                    deliveryMarker = L.marker(newLatLng, { icon: deliveryIcon }).addTo(map);
-                    map.setView(newLatLng, 16);
-                } else {
-                    deliveryMarker.setLatLng(newLatLng);
-                    map.panTo(newLatLng, { animate: true, duration: 1.2 });
-                }
-            } catch (err) {
-                console.error('Erro ao processar atualização:', err, event.data);
-            }
-        });
-
-        eventSource.onopen = () => {
-            badge.className = 'badge online';
-            statusText.textContent = 'Em trânsito';
-        };
-
-        eventSource.onerror = (error) => {
-            console.error('Erro SSE:', error);
-            badge.className = 'badge error';
-            statusText.textContent = 'Desconectado';
-        };
-    </script>
+<div class="container">
+<div class="sidebar">
+<h2>🛵 Rastreamento</h2>
+<div class="item">Status: <span id="status" class="badge">Conectando...</span></div>
+<div class="item">Rota: <strong id="route">#1</strong></div>
+<div class="item">Atualização: <strong id="time">--</strong></div>
+<div class="item">Coordenadas:<br><span id="coords">--</span></div>
+<div class="item">Distância: <strong id="distance">--</strong></div>
+</div>
+<div id="map"></div>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const colors=["#ff5722","#2563eb","#16a34a","#7c3aed","#dc2626","#0891b2","#ca8a04"];
+let idx=0,currentPolyline,lastOrderId=null,marker=null;
+const map=L.map("map").setView([-21.7545,-41.3245],15);
+L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",{maxZoom:19}).addTo(map);
+const icon=L.divIcon({className:"delivery-icon",html:"<div>🛵</div>",iconSize:[46,46],iconAnchor:[23,23]});
+function newRoute(label){
+ if(currentPolyline) currentPolyline.setStyle({opacity:.25,weight:4});
+ currentPolyline=L.polyline([],{color:colors[idx%colors.length],weight:6}).addTo(map);
+ idx++;
+ document.getElementById("route").textContent=label||("#"+idx);
+}
+newRoute();
+const es=new EventSource("/stream");
+es.onopen=()=>document.getElementById("status").textContent="Online";
+es.onerror=()=>document.getElementById("status").textContent="Desconectado";
+es.addEventListener("carMoved",e=>{
+ const data=JSON.parse(e.data);
+ const payload=typeof data.payload==="string"?JSON.parse(data.payload):(data.payload||data);
+ if(payload.orderId){
+  if(lastOrderId && payload.orderId!==lastOrderId) newRoute(payload.orderId);
+  else if(!lastOrderId) document.getElementById("route").textContent=payload.orderId;
+  lastOrderId=payload.orderId;
+ }
+ const p=payload.position||payload;
+ const pos=[p.lat,p.lng];
+ currentPolyline.addLatLng(pos);
+ if(!marker){marker=L.marker(pos,{icon}).addTo(map);map.setView(pos,16);}
+ else{marker.setLatLng(pos);map.panTo(pos,{animate:true,duration:1});}
+ document.getElementById("coords").textContent=`${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`;
+ document.getElementById("distance").textContent=Number.isFinite(payload.remainingDistanceKm)?payload.remainingDistanceKm.toFixed(2)+" km":"--";
+ document.getElementById("time").textContent=new Date().toLocaleTimeString();
+});
+</script>
 </body>
 </html>
