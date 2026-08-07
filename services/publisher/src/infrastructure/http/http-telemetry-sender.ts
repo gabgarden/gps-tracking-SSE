@@ -1,4 +1,4 @@
-import type { TelemetryPayload } from '../../domain/entities/telemetry-payload.js';
+import type { TelemetryPayload } from '../../application/dto/telemetry-payload.js';
 import type { TelemetrySender } from '../../application/ports/telemetry-sender.js';
 
 /** Sends telemetry payloads to the backend HTTP API. */

@@ -1,4 +1,4 @@
-import type { RouteConfig, RouteCoordinates } from '../../domain/entities/route.js';
+import type { RouteConfig, RouteCoordinates } from '../../domain/entities/route-on-map.js';
 import type { RouteProvider } from '../../application/ports/route-provider.js';
 
 interface RouteResponse {

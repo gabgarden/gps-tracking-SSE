@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import type { Telemetry } from '../../../domain/entities/telemetry.js';
+import { createCoordinates } from '../../../domain/value-objects/coordinates.js';
 import { ReceiveTelemetry } from '../../../application/use-cases/receive-telemetry.js';
 
 export class TelemetryController {
@@ -22,21 +23,23 @@ export class TelemetryController {
 function parseTelemetry(payload: unknown): Telemetry | undefined {
   if (!payload || typeof payload !== 'object') return undefined;
   const value = payload as Record<string, unknown>;
-  const fields = ['lat', 'lng', 'destinationLat', 'destinationLng'] as const;
   if (typeof value.orderId !== 'string' || !value.orderId.trim()
     || typeof value.driverId !== 'string' || !value.driverId.trim()
-    || fields.some((field) => typeof value[field] !== 'number' || !Number.isFinite(value[field]))) {
+    || typeof value.lat !== 'number'
+    || typeof value.lng !== 'number'
+    || typeof value.destinationLat !== 'number'
+    || typeof value.destinationLng !== 'number') {
     return undefined;
   }
 
-  const { lat, lng, destinationLat, destinationLng } = value as Record<typeof fields[number], number>;
-  if (Math.abs(lat) > 90 || Math.abs(destinationLat) > 90 || Math.abs(lng) > 180 || Math.abs(destinationLng) > 180) {
-    return undefined;
-  }
+  const position = createCoordinates(value.lat, value.lng);
+  const destination = createCoordinates(value.destinationLat, value.destinationLng);
+  if (!position || !destination) return undefined;
+
   return {
     orderId: value.orderId,
     driverId: value.driverId,
-    position: { lat, lng },
-    destination: { lat: destinationLat, lng: destinationLng },
+    position,
+    destination,
   };
 }

@@ -1,1 +1,1 @@
-export type { OrderStatusAudit } from '@gps-tracking/shared/audit';
+export type { OrderStatusAudit } from './order-status-audit-event.js';

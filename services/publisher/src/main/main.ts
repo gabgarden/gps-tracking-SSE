@@ -1,9 +1,11 @@
-import type { RouteConfig } from '../domain/entities/route.js';
+import type { RouteConfig } from '../domain/entities/route-on-map.js';
 import { SimulateDeliveryRoutes } from '../application/use-cases/simulate-delivery-routes.js';
 import { OsrmRouteProvider } from '../infrastructure/osrm/osrm-route-provider.js';
 import { HttpTelemetrySender } from '../infrastructure/http/http-telemetry-sender.js';
+import { HttpOrderStatusNotifier } from '../infrastructure/http/http-order-status-notifier.js';
 
 const TELEMETRY_URL = process.env.TELEMETRY_URL ?? 'http://localhost:8080/telemetry';
+const ORDER_STATUS_BASE_URL = process.env.ORDER_STATUS_BASE_URL ?? 'http://localhost:8080';
 const INTERVAL_MS = Number(process.env.SIMULATION_INTERVAL_MS ?? 1500);
 
 const ROUTES: readonly RouteConfig[] = [
@@ -36,10 +38,12 @@ const ROUTES: readonly RouteConfig[] = [
 
 async function bootstrap(): Promise<void> {
   console.log(`Simulador iniciado. Enviando telemetria para ${TELEMETRY_URL}...`);
+  console.log(`Auditoria de entregas via ${ORDER_STATUS_BASE_URL}/orders/:orderId/status`);
 
   const simulator = new SimulateDeliveryRoutes(
     new OsrmRouteProvider(),
     new HttpTelemetrySender(TELEMETRY_URL),
+    new HttpOrderStatusNotifier(ORDER_STATUS_BASE_URL),
   );
 
   await simulator.start({
@@ -51,6 +55,10 @@ async function bootstrap(): Promise<void> {
     },
     onStep: ({ routeIndex, step, totalSteps }) => {
       console.log(`[Rota ${routeIndex + 1} - Passo ${step}/${totalSteps}] Telemetria enviada.`);
+    },
+    onDeliveryCompleted: ({ orderId, routeName, durationMs }) => {
+      const seconds = (durationMs / 1000).toFixed(1);
+      console.log(`[Auditoria] ${orderId} entregue em ${seconds}s — ${routeName}`);
     },
   });
 }

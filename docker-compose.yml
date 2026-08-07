@@ -71,11 +71,15 @@ services:
       - node_modules_root:/app/node_modules
     working_dir: /app
     command: sh -c "npm install && npm run dev -w @gps-tracking/audit"
+    ports:
+      - "8081:8081"
     environment:
       - AUDIT_AMQP_URL=amqp://rabbitmq:5672
+      - AUDIT_HTTP_PORT=8081
     depends_on:
       rabbitmq:
         condition: service_healthy
+    restart: unless-stopped
     networks:
       - rede_sse
 
@@ -89,6 +93,7 @@ services:
     command: sh -c "npm install && npm run dev -w @gps-tracking/publisher"
     environment:
       - TELEMETRY_URL=http://backend:8080/telemetry
+      - ORDER_STATUS_BASE_URL=http://backend:8080
     depends_on:
       backend:
         condition: service_healthy
@@ -108,6 +113,8 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+      audit:
+        condition: service_started
     networks:
       - rede_sse
 

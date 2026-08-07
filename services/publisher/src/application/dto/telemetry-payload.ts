@@ -1,3 +1,4 @@
+/** Outbound DTO for the backend telemetry HTTP API. */
 export interface TelemetryPayload {
   readonly orderId: string;
   readonly driverId: string;

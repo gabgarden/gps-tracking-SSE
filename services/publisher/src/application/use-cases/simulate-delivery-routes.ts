@@ -1,4 +1,6 @@
-import type { RouteConfig } from '../../domain/entities/route.js';
+import { DeliverySimulation } from '../../domain/entities/delivery-simulation.js';
+import type { RouteConfig, RouteCoordinates } from '../../domain/entities/route-on-map.js';
+import type { OrderStatusNotifier } from '../ports/order-status-notifier.js';
 import type { RouteProvider } from '../ports/route-provider.js';
 import type { TelemetrySender } from '../ports/telemetry-sender.js';
 
@@ -8,91 +10,90 @@ export interface SimulateDeliveryRoutesOptions {
   readonly intervalMs: number;
   readonly onStep?: (info: { routeIndex: number; step: number; totalSteps: number; routeName: string }) => void;
   readonly onRouteChange?: (info: { routeIndex: number; routeName: string }) => void;
+  readonly onDeliveryCompleted?: (info: {
+    orderId: string;
+    routeName: string;
+    durationMs: number;
+  }) => void;
 }
 
-/** Simulates a driver following random routes and sending telemetry at each step. */
+/** Orchestrates route fetching and outbound notifications around the delivery simulation domain. */
 export class SimulateDeliveryRoutes {
-  private readonly routesCache = new Map<number, Awaited<ReturnType<RouteProvider['getRouteCoordinates']>>>();
+  private readonly routesCache = new Map<number, RouteCoordinates>();
 
   constructor(
     private readonly routeProvider: RouteProvider,
     private readonly telemetrySender: TelemetrySender,
+    private readonly orderStatusNotifier?: OrderStatusNotifier,
   ) {}
 
   async start(options: SimulateDeliveryRoutesOptions): Promise<void> {
-    let currentRouteIndex = this.getRandomRouteIndex(options.routes.length);
-    let stepIndex = 0;
-
-    options.onRouteChange?.({
-      routeIndex: currentRouteIndex,
-      routeName: options.routes[currentRouteIndex].name,
+    const simulation = DeliverySimulation.start({
+      routes: options.routes,
+      driverId: options.driverId,
     });
 
-    let routeCoordinates = await this.getRouteCoordinates(options.routes, currentRouteIndex);
+    options.onRouteChange?.({
+      routeIndex: simulation.currentRouteIndex,
+      routeName: simulation.currentRoute.name,
+    });
+
+    let routeCoordinates = await this.getRouteCoordinates(options.routes, simulation.currentRouteIndex);
 
     setInterval(async () => {
-      if (stepIndex >= routeCoordinates.length) {
-        currentRouteIndex = this.getRandomRouteIndex(options.routes.length, currentRouteIndex);
+      const result = simulation.tick(routeCoordinates);
+      if (!result) return;
+
+      if (result.kind === 'completed') {
+        if (this.orderStatusNotifier) {
+          try {
+            await this.orderStatusNotifier.notify({
+              orderId: result.delivery.orderId,
+              driverId: result.delivery.driverId,
+              status: 'DELIVERED',
+              routeName: result.delivery.routeName,
+              durationMs: result.delivery.durationMs,
+            });
+            options.onDeliveryCompleted?.({
+              orderId: result.delivery.orderId,
+              routeName: result.delivery.routeName,
+              durationMs: result.delivery.durationMs,
+            });
+          } catch (error) {
+            console.error('Falha ao registrar entrega na auditoria:', error);
+          }
+        }
+
         options.onRouteChange?.({
-          routeIndex: currentRouteIndex,
-          routeName: options.routes[currentRouteIndex].name,
+          routeIndex: result.nextRouteIndex,
+          routeName: options.routes[result.nextRouteIndex].name,
         });
 
         try {
-          routeCoordinates = await this.getRouteCoordinates(options.routes, currentRouteIndex);
-          stepIndex = 0;
+          routeCoordinates = await this.getRouteCoordinates(options.routes, result.nextRouteIndex);
+          simulation.beginRoute(result.nextRouteIndex);
         } catch (error) {
           console.error('Falha ao alternar rota:', error);
-          return;
+          simulation.abortCompletion();
         }
+        return;
       }
 
-      const [lng, lat] = routeCoordinates[stepIndex];
-      const route = options.routes[currentRouteIndex];
-      const [destinationLng, destinationLat] = route.end;
-
       try {
-        await this.telemetrySender.send({
-          orderId: `simulated-order-${currentRouteIndex + 1}`,
-          driverId: options.driverId,
-          lat,
-          lng,
-          destinationLat,
-          destinationLng,
-        });
-
-        options.onStep?.({
-          routeIndex: currentRouteIndex,
-          step: stepIndex + 1,
-          totalSteps: routeCoordinates.length,
-          routeName: route.name,
-        });
+        await this.telemetrySender.send(result.telemetry);
+        options.onStep?.(result.progress);
       } catch (error) {
         console.error('Falha ao enviar telemetria:', error);
       }
-
-      stepIndex++;
     }, options.intervalMs);
   }
 
-  private async getRouteCoordinates(routes: readonly RouteConfig[], routeIndex: number) {
-    if (this.routesCache.has(routeIndex)) {
-      return this.routesCache.get(routeIndex)!;
-    }
+  private async getRouteCoordinates(routes: readonly RouteConfig[], routeIndex: number): Promise<RouteCoordinates> {
+    const cached = this.routesCache.get(routeIndex);
+    if (cached) return cached;
 
     const coordinates = await this.routeProvider.getRouteCoordinates(routes[routeIndex]);
     this.routesCache.set(routeIndex, coordinates);
     return coordinates;
-  }
-
-  private getRandomRouteIndex(routeCount: number, currentIndex?: number): number {
-    if (routeCount <= 1) return 0;
-
-    let newIndex: number;
-    do {
-      newIndex = Math.floor(Math.random() * routeCount);
-    } while (newIndex === currentIndex);
-
-    return newIndex;
   }
 }

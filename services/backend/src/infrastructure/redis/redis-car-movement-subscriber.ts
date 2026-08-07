@@ -1,4 +1,5 @@
 import { createClient, type RedisClientType } from 'redis';
+import type { CarMovementMessage } from '../../application/dto/car-movement-message.js';
 import type {
   CarMovementSubscriber,
   CarMovementSubscription,
@@ -9,7 +10,7 @@ const CAR_MOVEMENTS_CHANNEL = process.env.CAR_MOVEMENTS_CHANNEL ?? 'car-movement
 export class RedisCarMovementSubscriber implements CarMovementSubscriber {
   constructor(private readonly client: RedisClientType) {}
 
-  async subscribe(onMovement: (movement: { payload: string }) => void): Promise<CarMovementSubscription> {
+  async subscribe(onMovement: (movement: CarMovementMessage) => void): Promise<CarMovementSubscription> {
     const subscriber = this.client.duplicate();
     subscriber.on('error', (error) => console.error('Redis subscriber error', error));
     await subscriber.connect();
