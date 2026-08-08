@@ -1,6 +1,6 @@
 import { connect, type Channel, type ConsumeMessage } from 'amqplib';
 import { AUDIT_ORDER_STATUS_QUEUE } from '@gps-tracking/shared/audit';
-import type { OrderStatusAudit } from '../../domain/entities/order-status-audit.js';
+import type { OrderStatusAudit } from '../../domain/entities/order-status-audit-event.js';
 import type { RecordOrderStatusAudit } from '../../application/use-cases/record-order-status-audit.js';
 
 export class AmqpOrderStatusConsumer {
