@@ -8,7 +8,9 @@ Telemetria em tempo real via **Redis Pub/Sub + SSE**; auditoria de status via **
 ```
 gps-tracking-SSE/
 ├── package.json              # npm workspaces (shared + services/*)
-├── docker-compose.yml        # Redis, RabbitMQ, backend, audit, publisher, frontend
+├── docker-compose.yml        # Dev: Redis, RabbitMQ, backend, audit, publisher, frontend
+├── docker-compose.prod.yml   # Produção (VPS): imagens buildadas, só nginx na 8083
+├── LINKS-E-COMANDOS.md       # URLs e comandos de dev/produção
 ├── README.md
 ├── architecture.md           # Visão detalhada de componentes e fluxos
 ├── adr.md                    # Registro de decisões arquiteturais
@@ -67,11 +69,22 @@ Cada serviço em `services/` possui as camadas:
 
 ## Executar com Docker
 
+Dev (código montado via volume, `tsx watch`):
+
 ```bash
 docker compose up
 ```
 
-| Serviço    | URL / Porta                          |
+Produção (imagens buildadas; na VPS a porta pública é `8083`):
+
+```bash
+cp .env.example .env
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+URLs, deploy na VPS e comandos do dia a dia: [LINKS-E-COMANDOS.md](LINKS-E-COMANDOS.md).
+
+| Serviço    | URL / Porta (dev)                    |
 | ---------- | ------------------------------------ |
 | Frontend   | http://localhost:3000                |
 | Backend    | http://localhost:8080                |

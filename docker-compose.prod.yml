@@ -1,0 +1,152 @@
+name: gps-tracking
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: gps-tracking-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - gps-tracking
+    logging: *default-logging
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: gps-tracking-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-gps}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-gps}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - gps-tracking
+    logging: *default-logging
+
+  backend:
+    build:
+      context: .
+      dockerfile: services/backend/Dockerfile
+    image: gps-tracking-backend
+    container_name: gps-tracking-backend
+    restart: unless-stopped
+    environment:
+      PORT: "8080"
+      REDIS_URL: redis://redis:6379
+      CAR_MOVEMENTS_CHANNEL: car-movements
+      AUDIT_AMQP_URL: amqp://${RABBITMQ_USER:-gps}:${RABBITMQ_PASS:-gps}@rabbitmq:5672
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:8080/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+    networks:
+      - gps-tracking
+    logging: *default-logging
+
+  audit:
+    build:
+      context: .
+      dockerfile: services/audit/Dockerfile
+    image: gps-tracking-audit
+    container_name: gps-tracking-audit
+    restart: unless-stopped
+    environment:
+      AUDIT_AMQP_URL: amqp://${RABBITMQ_USER:-gps}:${RABBITMQ_PASS:-gps}@rabbitmq:5672
+      AUDIT_HTTP_PORT: "8081"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:8081/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+    networks:
+      - gps-tracking
+    logging: *default-logging
+
+  publisher:
+    build:
+      context: .
+      dockerfile: services/publisher/Dockerfile
+    image: gps-tracking-publisher
+    container_name: gps-tracking-publisher
+    restart: unless-stopped
+    environment:
+      TELEMETRY_URL: http://backend:8080/telemetry
+      ORDER_STATUS_BASE_URL: http://backend:8080
+      SIMULATION_INTERVAL_MS: ${SIMULATION_INTERVAL_MS:-1500}
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - gps-tracking
+    logging: *default-logging
+
+  nginx:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    image: gps-tracking-nginx
+    container_name: gps-tracking-nginx
+    restart: unless-stopped
+    ports:
+      - "${GPS_TRACKING_PORT:-8083}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+      audit:
+        condition: service_healthy
+    networks:
+      - gps-tracking
+    logging: *default-logging
+
+networks:
+  gps-tracking:
+    name: gps-tracking_default
+    driver: bridge
+
+volumes:
+  redis_data:
+    name: gps-tracking_redis_data
+  rabbitmq_data:
+    name: gps-tracking_rabbitmq_data

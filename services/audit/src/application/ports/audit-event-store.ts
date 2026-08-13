@@ -1,4 +1,4 @@
-import type { OrderStatusAudit } from '../../domain/entities/order-status-audit.js';
+import type { OrderStatusAudit } from '../../domain/entities/order-status-audit-event.js';
 
 export type AuditEventListener = (event: OrderStatusAudit) => void;
 

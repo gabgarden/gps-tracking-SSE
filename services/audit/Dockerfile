@@ -8,7 +8,7 @@ COPY services ./services
 
 RUN npm ci
 RUN npm run build -w @gps-tracking/shared
-RUN npm run build -w @gps-tracking/backend
+RUN npm run build -w @gps-tracking/audit
 
 FROM node:22-alpine
 
@@ -25,8 +25,8 @@ RUN npm ci --omit=dev \
   && node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync('shared/package.json','utf8')); p.exports['./audit']='./dist/audit/index.js'; fs.writeFileSync('shared/package.json', JSON.stringify(p, null, 2));"
 
 COPY --from=build /app/shared/dist ./shared/dist
-COPY --from=build /app/services/backend/dist ./services/backend/dist
+COPY --from=build /app/services/audit/dist ./services/audit/dist
 
-WORKDIR /app/services/backend
-EXPOSE 8080
+WORKDIR /app/services/audit
+EXPOSE 8081
 CMD ["node", "dist/main/main.js"]

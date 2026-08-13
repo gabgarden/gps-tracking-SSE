@@ -4,6 +4,13 @@
   "private": true,
   "type": "commonjs",
   "exports": {
-    "./audit": "./src/audit/index.ts"
+    "./audit": {
+      "types": "./src/audit/index.ts",
+      "default": "./src/audit/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
   }
 }
