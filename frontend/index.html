@@ -2,359 +2,1606 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Rastreamento em Tempo Real</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>GPS Tracking SSE - Rastreamento & Arquitetura em Tempo Real</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
-:root{
-  --bg-deep:#0a0f1c;
-  --paper:#fbfaf8;
-  --ink:#12141c;
-  --muted:#6b7280;
-  --line:#e8e6e0;
-  --heat:#ff5722;
-  --heat-dark:#e6491b;
-  --cool:#0ea5e9;
-  --ok:#16a34a;
-  --warn:#dc2626;
-  --radius:18px;
-}
-*{margin:0;padding:0;box-sizing:border-box;}
-body{
-  font-family:'Inter',sans-serif;
-  background:
-    radial-gradient(1100px 600px at 15% -10%, #16233d 0%, transparent 60%),
-    radial-gradient(900px 500px at 100% 110%, #1a1330 0%, transparent 55%),
-    var(--bg-deep);
-  padding:20px;
-  min-height:100vh;
-}
-.container{max-width:1440px;margin:auto;position:relative;}
-#map{
-  height:88vh;
-  border-radius:24px;
-  box-shadow:0 30px 60px rgba(2,6,23,.55), 0 0 0 1px rgba(255,255,255,.05);
+:root {
+  --bg-deep: #070a12;
+  --bg-surface: #0f172a;
+  --bg-card: rgba(15, 23, 42, 0.88);
+  --bg-card-hover: rgba(30, 41, 59, 0.92);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-border-glow: rgba(6, 182, 212, 0.35);
+  
+  --ink-primary: #f8fafc;
+  --ink-secondary: #94a3b8;
+  --ink-muted: #64748b;
+  
+  --accent-cyan: #06b6d4;
+  --accent-cyan-dark: #0891b2;
+  --accent-orange: #ff5722;
+  --accent-orange-dark: #ea580c;
+  --accent-green: #10b981;
+  --accent-purple: #8b5cf6;
+  --accent-amber: #f59e0b;
+  --accent-pink: #ec4899;
+  
+  --line-color: rgba(255, 255, 255, 0.08);
+  --radius-lg: 20px;
+  --radius-md: 14px;
+  --radius-sm: 8px;
+  
+  --shadow-main: 0 20px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px var(--glass-border);
+  --shadow-glow-cyan: 0 0 25px rgba(6, 182, 212, 0.25);
+  --shadow-glow-orange: 0 0 25px rgba(255, 87, 34, 0.25);
 }
 
-/* ---------- floating panels ---------- */
-.panel{
-  position:absolute;
-  z-index:999;
-  width:296px;
-  background:rgba(251,250,248,.94);
-  backdrop-filter:blur(18px) saturate(140%);
-  -webkit-backdrop-filter:blur(18px) saturate(140%);
-  border:1px solid rgba(17,20,28,.06);
-  border-radius:var(--radius);
-  box-shadow:0 24px 48px rgba(2,6,23,.4), 0 2px 6px rgba(2,6,23,.15);
-  padding:20px 20px 18px;
-  color:var(--ink);
-}
-.sidebar{top:20px;left:20px;}
-.audit-panel{top:20px;right:20px;max-height:88vh;overflow:auto;}
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
-.panel-eyebrow{
-  font-size:10.5px;
-  font-weight:700;
-  letter-spacing:.11em;
-  text-transform:uppercase;
-  color:var(--heat-dark);
+body {
+  font-family: 'Inter', sans-serif;
+  background: radial-gradient(1200px 800px at 10% -10%, #0e1e38 0%, transparent 70%),
+              radial-gradient(1000px 700px at 90% 110%, #1c0f2e 0%, transparent 65%),
+              var(--bg-deep);
+  color: var(--ink-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
 }
-.panel-title{
-  display:flex;
-  align-items:center;
-  gap:9px;
-  font-size:18px;
-  font-weight:800;
-  letter-spacing:-.01em;
-  margin-top:2px;
-  margin-bottom:14px;
-}
-.panel-title .glyph{
-  width:30px;height:30px;border-radius:9px;
-  display:flex;align-items:center;justify-content:center;
-  font-size:16px;
-}
-.sidebar .glyph{background:linear-gradient(145deg,var(--heat),var(--heat-dark));color:#fff;box-shadow:0 6px 14px rgba(255,87,34,.35);}
-.audit-panel .glyph{background:linear-gradient(145deg,#1e293b,#0f172a);color:#fff;box-shadow:0 6px 14px rgba(15,23,42,.3);}
 
-.row{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  padding:10px 0;
-  border-top:1px solid var(--line);
+/* ---------- APP HEADER ---------- */
+.app-header {
+  height: 64px;
+  background: rgba(15, 23, 42, 0.8);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--glass-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
 }
-.row:first-of-type{border-top:none;padding-top:0;}
-.row-label{
-  font-size:11px;
-  font-weight:600;
-  letter-spacing:.06em;
-  text-transform:uppercase;
-  color:var(--muted);
-}
-.row-value{
-  font-family:'JetBrains Mono',monospace;
-  font-size:13px;
-  font-weight:600;
-  color:var(--ink);
-  text-align:right;
-}
-.route-value{display:flex;align-items:center;gap:7px;}
-.route-dot{width:9px;height:9px;border-radius:50%;flex:none;box-shadow:0 0 0 3px rgba(0,0,0,.04);}
 
-.status-pill{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;}
-.status-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none;}
-.status-pill.is-online .status-dot{background:var(--ok);box-shadow:0 0 0 4px rgba(22,163,74,.15);}
-.status-pill.is-online{color:var(--ok);}
-.status-pill.is-offline .status-dot{background:var(--warn);}
-.status-pill.is-offline{color:var(--warn);}
-.status-pill.is-connecting .status-dot{background:#d97706;animation:blink 1.1s ease-in-out infinite;}
-.status-pill.is-connecting{color:#b45309;}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 
-/* ---------- audit list ---------- */
-.audit-count-badge{
-  font-family:'JetBrains Mono',monospace;
-  font-weight:700;
-  font-size:13px;
-  background:#f1f0eb;
-  padding:3px 10px;
-  border-radius:20px;
+.brand-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent-orange), var(--accent-cyan));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-glow-orange);
+  font-weight: 800;
+  font-size: 18px;
+  color: #fff;
 }
-.audit-list{list-style:none;margin-top:6px;}
-.audit-list li{
-  padding:12px 2px;
-  border-top:1px solid var(--line);
-  display:flex;
-  flex-direction:column;
-  gap:3px;
-}
-.audit-list li:first-child{border-top:none;}
-.audit-row-top{display:flex;align-items:center;justify-content:space-between;gap:10px;}
-.audit-order{display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:700;}
-.audit-order .route-dot{width:8px;height:8px;}
-.audit-duration{
-  font-family:'JetBrains Mono',monospace;
-  font-weight:700;
-  font-size:12.5px;
-  color:#fff;
-  background:linear-gradient(145deg,var(--cool),#0369a1);
-  padding:3px 9px;
-  border-radius:8px;
-  white-space:nowrap;
-}
-.audit-meta{color:var(--muted);font-size:11.5px;font-family:'JetBrains Mono',monospace;}
-.audit-empty{color:var(--muted);font-size:13px;margin-top:10px;text-align:center;padding:18px 0;border:1px dashed var(--line);border-radius:12px;}
 
-/* ---------- courier marker ---------- */
-.delivery-marker{position:relative;width:54px;height:54px;display:flex;align-items:center;justify-content:center;}
-.pulse-ring{
-  position:absolute;width:54px;height:54px;border-radius:50%;
-  background:radial-gradient(circle, rgba(255,87,34,.55) 0%, rgba(255,87,34,0) 70%);
-  animation:radar 2.4s ease-out infinite;
+.brand-text {
+  display: flex;
+  flex-direction: column;
 }
-.pulse-ring.delay{animation-delay:1.2s;}
-@keyframes radar{0%{transform:scale(.35);opacity:.55}100%{transform:scale(1.7);opacity:0}}
-.delivery-avatar{
-  position:relative;width:38px;height:38px;border-radius:50%;
-  background:linear-gradient(150deg,var(--heat) 0%,var(--heat-dark) 100%);
-  display:flex;align-items:center;justify-content:center;
-  box-shadow:0 8px 18px rgba(255,87,34,.5), 0 0 0 3px #fff;
-  transition:transform .25s ease;
-}
-.delivery-avatar svg{width:22px;height:22px;}
 
-@media (max-width:760px){
-  #map{height:60vh;}
-  .panel{position:static;width:100%;margin-bottom:14px;max-height:none;}
-  .container{display:flex;flex-direction:column;}
+.brand-title {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #ffffff 30%, var(--ink-secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.brand-subtitle {
+  font-size: 11px;
+  color: var(--accent-cyan);
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+}
+
+/* Header Stream Badges */
+.header-streams {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.stream-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 30px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--glass-border);
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.25s ease;
+}
+
+.stream-badge:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink-muted);
+  position: relative;
+}
+
+.status-dot.online {
+  background: var(--accent-green);
+  box-shadow: 0 0 10px var(--accent-green);
+}
+
+.status-dot.online::after {
+  content: '';
+  position: absolute;
+  top: -2px; left: -2px; right: -2px; bottom: -2px;
+  border-radius: 50%;
+  border: 1px solid var(--accent-green);
+  animation: pulse-ring 2s ease-out infinite;
+}
+
+.status-dot.connecting {
+  background: var(--accent-amber);
+  animation: blink 1s infinite alternate;
+}
+
+.status-dot.offline {
+  background: #ef4444;
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+@keyframes blink {
+  0% { opacity: 0.3; }
+  100% { opacity: 1; }
+}
+
+.stream-counter {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px 7px;
+  border-radius: 10px;
+  color: var(--ink-secondary);
+}
+
+/* Nav Tabs (Desktop) */
+.nav-tabs {
+  display: flex;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 4px;
+  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+  gap: 2px;
+}
+
+.nav-tab {
+  padding: 7px 16px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--ink-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.nav-tab:hover {
+  color: var(--ink-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.nav-tab.active {
+  background: var(--accent-cyan);
+  color: #070a12;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3);
+}
+
+.nav-tab .tab-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* ---------- MAIN LAYOUT ---------- */
+.main-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  height: calc(100vh - 64px);
+  width: 100%;
+  overflow: hidden;
+}
+
+.view-section {
+  display: none;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  flex: 1;
+}
+
+.view-section.active {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+
+/* ---------- MAP VIEW & FLOATING PANELS ---------- */
+#map-container {
+  width: 100%;
+  height: 100%;
+  flex: 1;
+  position: relative;
+  min-height: 0;
+}
+
+#map {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  background: #090d16;
+}
+
+/* Floating Glass Panels */
+.floating-panel {
+  position: absolute;
+  z-index: 900;
+  width: 320px;
+  background: var(--bg-card);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-main);
+  padding: 18px;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.panel-left { top: 16px; left: 16px; }
+.panel-right { top: 16px; right: 16px; max-height: calc(100% - 32px); overflow-y: auto; }
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line-color);
+}
+
+.panel-tag {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent-cyan);
+}
+
+.panel-title {
+  font-size: 16px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.info-row:last-child { border-bottom: none; }
+
+.info-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-secondary);
+}
+
+.info-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.route-dot-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  box-shadow: 0 0 8px currentColor;
+}
+
+/* Audit Items List */
+.audit-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.audit-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.audit-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.audit-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.audit-order-id {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.duration-pill {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, var(--accent-cyan-dark), #0369a1);
+  color: #fff;
+}
+
+.audit-card-bottom {
+  font-size: 11px;
+  color: var(--ink-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Marker Styling */
+.delivery-marker {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pulse-ring {
+  position: absolute;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 87, 34, 0.6) 0%, rgba(255, 87, 34, 0) 70%);
+  animation: radar 2.4s ease-out infinite;
+}
+
+.pulse-ring.delay { animation-delay: 1.2s; }
+
+@keyframes radar {
+  0% { transform: scale(0.3); opacity: 0.8; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+
+.delivery-avatar {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-orange), var(--accent-orange-dark));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-glow-orange), 0 0 0 3px #fff;
+}
+
+/* ---------- ARCHITECTURE & LAYERS VIEW ---------- */
+.architecture-container {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  padding: 30px 20px;
+  background: var(--bg-deep);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.page-title-box {
+  text-align: center;
+  max-width: 700px;
+  margin-bottom: 30px;
+}
+
+.page-title-box h2 {
+  font-size: 26px;
+  font-weight: 800;
+  margin-bottom: 8px;
+  background: linear-gradient(135deg, #fff, var(--ink-secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.page-title-box p {
+  font-size: 14px;
+  color: var(--ink-secondary);
+  line-height: 1.5;
+}
+
+/* Architectural Flow Visualizer */
+.layers-grid {
+  width: 100%;
+  max-width: 1200px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 30px;
+  position: relative;
+}
+
+.layer-card {
+  background: var(--bg-card);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  position: relative;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+}
+
+.layer-card:hover {
+  border-color: var(--accent-cyan);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-glow-cyan);
+}
+
+.layer-card.active-pulse {
+  animation: layer-glow 1s ease-out;
+  border-color: var(--accent-green) !important;
+  box-shadow: 0 0 30px rgba(16, 185, 129, 0.4) !important;
+}
+
+@keyframes layer-glow {
+  0% { transform: scale(1.02); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.layer-badge {
+  align-self: flex-start;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 3px 8px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--accent-cyan);
+}
+
+.layer-icon {
+  font-size: 28px;
+  margin-bottom: 10px;
+}
+
+.layer-name {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.layer-desc {
+  font-size: 12px;
+  color: var(--ink-secondary);
+  line-height: 1.4;
+  flex: 1;
+}
+
+.layer-tech-pill {
+  margin-top: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  color: var(--ink-muted);
+  background: rgba(0, 0, 0, 0.4);
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Connection Flow Lines */
+.flow-diagram-box {
+  width: 100%;
+  max-width: 1200px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  margin-bottom: 30px;
+}
+
+.flow-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent-cyan);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.flow-step-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.flow-step {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.flow-step-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent-cyan);
+  color: #070a12;
+  font-weight: 800;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.flow-step-content {
+  flex: 1;
+}
+
+.flow-step-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--ink-primary);
+}
+
+.flow-step-detail {
+  font-size: 12px;
+  color: var(--ink-secondary);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Layer Detail Modal/Box */
+.layer-detail-modal {
+  width: 100%;
+  max-width: 1200px;
+  background: var(--bg-card);
+  border: 1px solid var(--glass-border-glow);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-main);
+  display: none;
+}
+
+.layer-detail-modal.show {
+  display: block;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ---------- TERMINAL & SSE PROTOCOL INSPECTOR VIEW ---------- */
+.terminal-container {
+  width: 100%;
+  height: 100%;
+  padding: 20px;
+  background: var(--bg-deep);
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 20px;
+  overflow: hidden;
+}
+
+@media (max-width: 1024px) {
+  .terminal-container {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+}
+
+.terminal-box {
+  background: #030712;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: var(--shadow-main);
+}
+
+.terminal-header {
+  height: 46px;
+  background: #0b1120;
+  border-bottom: 1px solid var(--glass-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+}
+
+.terminal-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.term-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.term-dot.red { background: #ef4444; }
+.term-dot.yellow { background: #f59e0b; }
+.term-dot.green { background: #10b981; }
+
+.terminal-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--ink-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.terminal-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-term {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--glass-border);
+  color: var(--ink-primary);
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-term:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: var(--accent-cyan);
+}
+
+.btn-term.active {
+  background: var(--accent-cyan);
+  color: #070a12;
+  font-weight: 700;
+}
+
+.terminal-body {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.log-entry {
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+  border-left: 3px solid var(--accent-cyan);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.log-entry:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.log-entry.audit { border-left-color: var(--accent-purple); }
+.log-entry.keepalive { border-left-color: var(--ink-muted); opacity: 0.6; }
+
+.log-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.log-event-tag {
+  font-weight: 700;
+  color: var(--accent-cyan);
+}
+
+.log-entry.audit .log-event-tag { color: var(--accent-purple); }
+
+.log-time {
+  color: var(--ink-muted);
+  font-size: 11px;
+}
+
+.log-data-preview {
+  color: var(--ink-secondary);
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+
+/* Protocol Details Sidebar */
+.protocol-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.protocol-card {
+  background: var(--bg-card);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+}
+
+.protocol-card-title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent-cyan);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.code-block {
+  background: #030712;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px;
+  color: #38bdf8;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* ---------- MOBILE BOTTOM NAV ---------- */
+.mobile-bottom-nav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: rgba(11, 17, 32, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--glass-border);
+  z-index: 1000;
+  justify-content: space-around;
+  align-items: center;
+  padding: 0 4px;
+}
+
+.mobile-nav-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  background: none;
+  border: none;
+  color: var(--ink-muted);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 6px 0;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.mobile-nav-btn icon {
+  font-size: 18px;
+}
+
+.mobile-nav-btn.active {
+  color: var(--accent-cyan);
+}
+
+/* Mobile Responsive Tweaks */
+@media (max-width: 992px) {
+  .app-header {
+    padding: 0 12px;
+  }
+  
+  .nav-tabs {
+    display: none; /* Hidden on mobile, replaced by bottom nav */
+  }
+  
+  .mobile-bottom-nav {
+    display: flex;
+  }
+  
+  .main-wrapper {
+    height: calc(100vh - 64px - 60px);
+  }
+  
+  .floating-panel {
+    position: static;
+    width: 100%;
+    border-radius: var(--radius-md);
+    margin-bottom: 12px;
+    box-shadow: none;
+  }
+  
+  .panel-left, .panel-right {
+    top: auto; left: auto; right: auto;
+    max-height: none;
+  }
+  
+  #mobile-panel-overlay {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    right: 10px;
+    z-index: 850;
+    pointer-events: none;
+  }
+  
+  #mobile-panel-overlay > * {
+    pointer-events: auto;
+  }
 }
 </style>
 </head>
 <body>
-<div class="container">
 
-  <div class="panel sidebar">
-    <div class="panel-eyebrow">Operação ao vivo</div>
-    <div class="panel-title"><span class="glyph">📍</span>Rastreamento</div>
-
-    <div class="row">
-      <span class="row-label">Status</span>
-      <span id="status" class="status-pill is-connecting"><span class="status-dot"></span>Conectando…</span>
-    </div>
-    <div class="row">
-      <span class="row-label">Rota</span>
-      <span class="row-value route-value"><span id="route-dot" class="route-dot" style="background:#ff5722"></span><span id="route">#1</span></span>
-    </div>
-    <div class="row">
-      <span class="row-label">Atualização</span>
-      <span id="time" class="row-value">--</span>
-    </div>
-    <div class="row">
-      <span class="row-label">Coordenadas</span>
-      <span id="coords" class="row-value">--</span>
-    </div>
-    <div class="row">
-      <span class="row-label">Distância restante</span>
-      <span id="distance" class="row-value">--</span>
+<!-- APP HEADER -->
+<header class="app-header">
+  <div class="brand">
+    <div class="brand-icon">⚡</div>
+    <div class="brand-text">
+      <span class="brand-title">GPS Tracking SSE</span>
+      <span class="brand-subtitle">Server-Sent Events & Clean Arch</span>
     </div>
   </div>
 
-  <div class="panel audit-panel">
-    <div class="panel-eyebrow">Conformidade</div>
-    <div class="panel-title"><span class="glyph">📋</span>Auditoria</div>
-
-    <div class="row">
-      <span class="row-label">Serviço</span>
-      <span id="audit-status" class="status-pill is-connecting"><span class="status-dot"></span>Carregando…</span>
+  <!-- SSE Status Badges -->
+  <div class="header-streams">
+    <div class="stream-badge" title="Canal de Telemetria SSE em Tempo Real (/stream)">
+      <span id="badge-dot-stream" class="status-dot connecting"></span>
+      <span>Telemetria</span>
+      <span id="badge-count-stream" class="stream-counter">0</span>
     </div>
-    <div class="row">
-      <span class="row-label">Entregas registradas</span>
-      <span id="audit-count" class="audit-count-badge">0</span>
+    
+    <div class="stream-badge" title="Canal de Auditoria SSE em Tempo Real (/audit/stream)">
+      <span id="badge-dot-audit" class="status-dot connecting"></span>
+      <span>Auditoria</span>
+      <span id="badge-count-audit" class="stream-counter">0</span>
     </div>
-
-    <ul id="audit-list" class="audit-list"></ul>
-    <p id="audit-empty" class="audit-empty">Nenhuma entrega registrada ainda.</p>
   </div>
 
-  <div id="map"></div>
-</div>
+  <!-- Desktop Navigation Tabs -->
+  <nav class="nav-tabs">
+    <button class="nav-tab active" data-view="map">🗺️ Mapa</button>
+    <button class="nav-tab" data-view="telemetry">📡 Telemetria</button>
+    <button class="nav-tab" data-view="audit">📋 Auditoria</button>
+    <button class="nav-tab" data-view="architecture">📐 Arquitetura</button>
+    <button class="nav-tab" data-view="terminal">📟 Terminal SSE</button>
+  </nav>
+</header>
+
+<!-- MAIN CONTENT WRAPPER -->
+<main class="main-wrapper">
+
+  <!-- 1. MAP VIEW -->
+  <section id="view-map" class="view-section active">
+    <div id="map-container">
+      
+      <!-- Left Floating Panel: Telemetry HUD -->
+      <div class="floating-panel panel-left" id="panel-hud">
+        <div class="panel-tag">Operação ao vivo</div>
+        <div class="panel-header">
+          <div class="panel-title">📍 Rastreamento GPS</div>
+        </div>
+
+        <div class="info-row">
+          <span class="info-label">Status Stream</span>
+          <span id="status-telemetry" class="info-value"><span class="status-dot connecting"></span> Conectando...</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Pedido / Rota</span>
+          <span class="info-value"><span id="route-dot" class="route-dot-indicator" style="background:#ff5722; color:#ff5722;"></span> <span id="val-order">#1</span></span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Último Evento</span>
+          <span id="val-time" class="info-value">--:--:--</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Coordenadas</span>
+          <span id="val-coords" class="info-value">--.-----, --.-----</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Distância Restante</span>
+          <span id="val-distance" class="info-value">-- km</span>
+        </div>
+      </div>
+
+      <!-- Right Floating Panel: Audit Feed -->
+      <div class="floating-panel panel-right" id="panel-audit-hud">
+        <div class="panel-tag">Conformidade</div>
+        <div class="panel-header">
+          <div class="panel-title">📋 Entregas Concluídas</div>
+          <span id="audit-total-badge" class="duration-pill">0</span>
+        </div>
+
+        <div class="info-row">
+          <span class="info-label">Stream Audit</span>
+          <span id="status-audit" class="info-value"><span class="status-dot connecting"></span> Aguardando...</span>
+        </div>
+
+        <ul id="audit-list" class="audit-list">
+          <li style="color: var(--ink-muted); font-size: 12px; text-align: center; padding: 20px 0;">
+            Aguardando eventos de auditoria via AMQP / SSE...
+          </li>
+        </ul>
+      </div>
+
+      <div id="map"></div>
+    </div>
+  </section>
+
+  <!-- 2. TELEMETRY FULL VIEW (MOBILE / DEDICATED) -->
+  <section id="view-telemetry" class="view-section" style="padding: 20px; overflow-y: auto; background: var(--bg-deep);">
+    <div style="max-width: 800px; margin: 0 auto; width: 100%;">
+      <div class="page-title-box">
+        <h2>📡 Telemetria & Posição GPS</h2>
+        <p>Dados de movimentação recebidos em tempo real via canal SSE <code>/stream</code>.</p>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
+        <div class="protocol-card">
+          <div class="panel-tag">Conexão</div>
+          <div style="font-size: 20px; font-weight: 800; margin: 10px 0;" id="tel-card-status">Conectando...</div>
+          <div style="font-size: 12px; color: var(--ink-secondary);">Endpoint: <code>GET /stream</code></div>
+        </div>
+
+        <div class="protocol-card">
+          <div class="panel-tag">Pedido Ativo</div>
+          <div style="font-size: 20px; font-weight: 800; margin: 10px 0; color: var(--accent-orange);" id="tel-card-order">--</div>
+          <div style="font-size: 12px; color: var(--ink-secondary);">Identificador da entrega</div>
+        </div>
+
+        <div class="protocol-card">
+          <div class="panel-tag">Distância Restante</div>
+          <div style="font-size: 20px; font-weight: 800; margin: 10px 0; color: var(--accent-cyan);" id="tel-card-dist">-- km</div>
+          <div style="font-size: 12px; color: var(--ink-secondary);">Cálculo em tempo real</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. AUDIT FULL VIEW -->
+  <section id="view-audit" class="view-section" style="padding: 20px; overflow-y: auto; background: var(--bg-deep);">
+    <div style="max-width: 800px; margin: 0 auto; width: 100%;">
+      <div class="page-title-box">
+        <h2>📋 Auditoria de Entregas</h2>
+        <p>Histórico persistido e transmitido via RabbitMQ AMQP para o SSE <code>/audit/stream</code>.</p>
+      </div>
+
+      <div id="full-audit-container">
+        <ul id="full-audit-list" class="audit-list">
+          <li style="color: var(--ink-muted); text-align: center; padding: 30px;">Nenhum evento registrado ainda.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. ARCHITECTURE & LAYERS VIEW -->
+  <section id="view-architecture" class="view-section">
+    <div class="architecture-container">
+      <div class="page-title-box">
+        <h2>📐 Arquitetura & Fluxo de Chamadas</h2>
+        <p>Sistema organizado em **Monorepo** com **Arquitetura Limpa (Ports & Adapters)**. Clique em cada camada para entender o papel dos componentes.</p>
+      </div>
+
+      <!-- 5 Layers Grid -->
+      <div class="layers-grid">
+        <!-- Layer 1 -->
+        <div class="layer-card" id="layer-publisher" onclick="selectLayer('publisher')">
+          <span class="layer-badge">Camada 1</span>
+          <div class="layer-icon">🚗</div>
+          <div class="layer-name">Publisher</div>
+          <div class="layer-desc">Simulador de entregas que gera coordenadas GPS reais e envia requisições HTTP.</div>
+          <div class="layer-tech-pill">POST /telemetry</div>
+        </div>
+
+        <!-- Layer 2 -->
+        <div class="layer-card" id="layer-backend" onclick="selectLayer('backend')">
+          <span class="layer-badge">Camada 2</span>
+          <div class="layer-icon">⚙️</div>
+          <div class="layer-name">Backend API</div>
+          <div class="layer-desc">Serviço Node.js/Express com Use Cases de recebimento, publicação e SSE streaming.</div>
+          <div class="layer-tech-pill">Clean Arch & Controllers</div>
+        </div>
+
+        <!-- Layer 3 -->
+        <div class="layer-card" id="layer-broker" onclick="selectLayer('broker')">
+          <span class="layer-badge">Camada 3</span>
+          <div class="layer-icon">🔄</div>
+          <div class="layer-name">Brokers / Eventos</div>
+          <div class="layer-desc">Redis Pub/Sub para streaming rápido de GPS e RabbitMQ AMQP para filas de auditoria.</div>
+          <div class="layer-tech-pill">Redis & RabbitMQ</div>
+        </div>
+
+        <!-- Layer 4 -->
+        <div class="layer-card" id="layer-audit" onclick="selectLayer('audit')">
+          <span class="layer-badge">Camada 4</span>
+          <div class="layer-icon">🛡️</div>
+          <div class="layer-name">Serviço Audit</div>
+          <div class="layer-desc">Microserviço independente que consome mensagens de auditoria e expõe SSE próprio.</div>
+          <div class="layer-tech-pill">GET /audit/stream</div>
+        </div>
+
+        <!-- Layer 5 -->
+        <div class="layer-card" id="layer-frontend" onclick="selectLayer('frontend')">
+          <span class="layer-badge">Camada 5</span>
+          <div class="layer-icon">💻</div>
+          <div class="layer-name">Frontend Nginx</div>
+          <div class="layer-desc">Interface web estática que consome os EventSources SSE e renderiza o mapa com Leaflet.</div>
+          <div class="layer-tech-pill">EventSource API</div>
+        </div>
+      </div>
+
+      <!-- Flow Step Breakdown -->
+      <div class="flow-diagram-box">
+        <div class="flow-title">⚡ Fluxo de Eventos em Tempo Real (SSE Data Flow)</div>
+        <div class="flow-step-list">
+          <div class="flow-step">
+            <div class="flow-step-num">1</div>
+            <div class="flow-step-content">
+              <div class="flow-step-title">Telemetria GPS enviada pelo Publisher</div>
+              <div class="flow-step-detail">Simulador realiza POST HTTP para <code>/telemetry</code> no Backend API.</div>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-step-num">2</div>
+            <div class="flow-step-content">
+              <div class="flow-step-title">Publicação no Redis Pub/Sub</div>
+              <div class="flow-step-detail">Backend processa o use case <code>ReceiveTelemetry</code> e publica no canal Redis <code>car-movements</code>.</div>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-step-num">3</div>
+            <div class="flow-step-content">
+              <div class="flow-step-title">Streaming SSE para o Frontend</div>
+              <div class="flow-step-detail">Controller do SSE escuta o Redis e transmite via <code>GET /stream</code> (evento: <code>carMoved</code>).</div>
+            </div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-step-num">4</div>
+            <div class="flow-step-content">
+              <div class="flow-step-title">Fila de Auditoria de Entregas (AMQP)</div>
+              <div class="flow-step-detail">Mudanças de status geram eventos na fila RabbitMQ <code>audit.order-status</code> consumidos pelo serviço Audit.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Layer Detail Output Card -->
+      <div class="layer-detail-modal" id="layer-detail-box">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h3 id="layer-detail-title" style="font-size: 18px; font-weight: 800; color: var(--accent-cyan);">Detalhes da Camada</h3>
+          <span style="font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--ink-muted);" id="layer-detail-tag">PORTS & ADAPTERS</span>
+        </div>
+        <p id="layer-detail-body" style="font-size: 13.5px; color: var(--ink-secondary); line-height: 1.6;"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. TERMINAL & SSE PROTOCOL INSPECTOR VIEW -->
+  <section id="view-terminal" class="view-section">
+    <div class="terminal-container">
+      
+      <!-- Main Live Logs Box -->
+      <div class="terminal-box">
+        <div class="terminal-header">
+          <div class="terminal-controls">
+            <span class="term-dot red"></span>
+            <span class="term-dot yellow"></span>
+            <span class="term-dot green"></span>
+          </div>
+          <div class="terminal-title">📟 Live SSE Protocol Monitor</div>
+          <div class="terminal-actions">
+            <button class="btn-term" id="btn-pause-log">⏸️ Pausar</button>
+            <button class="btn-term" onclick="clearLogs()">🗑️ Limpar</button>
+          </div>
+        </div>
+        <div class="terminal-body" id="terminal-logs">
+          <!-- Log Entries dynamically inserted -->
+        </div>
+      </div>
+
+      <!-- Protocol Specifications & Headers Panel -->
+      <div class="protocol-sidebar">
+        <div class="protocol-card">
+          <div class="protocol-card-title">🌐 Cabeçalhos HTTP do SSE</div>
+          <div class="code-block">GET /stream HTTP/1.1
+Host: localhost
+Accept: text/event-stream
+
+HTTP/1.1 200 OK
+Content-Type: text/event-stream
+Cache-Control: no-cache
+Connection: keep-alive</div>
+        </div>
+
+        <div class="protocol-card">
+          <div class="protocol-card-title">📝 Formato Nativo do Wire Protocol</div>
+          <div class="code-block">event: carMoved
+data: {"orderId":"ORD-1","position":{"lat":-21.75,"lng":-41.32}}
+
+: keep-alive</div>
+        </div>
+
+        <div class="protocol-card">
+          <div class="protocol-card-title">💡 SSE vs WebSockets</div>
+          <div style="font-size: 12px; color: var(--ink-secondary); line-height: 1.5;">
+            • <b>SSE:</b> Unidirecional (Servidor → Cliente), HTTP/1.1 nativo, auto-reconexão no <code>EventSource</code>.<br>
+            • <b>Ideal para:</b> Dashboards, rastreamento GPS, logs e notificações ao vivo.
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+</main>
+
+<!-- MOBILE BOTTOM NAVIGATION BAR -->
+<nav class="mobile-bottom-nav">
+  <button class="mobile-nav-btn active" data-view="map">
+    <span>🗺️</span>
+    <span>Mapa</span>
+  </button>
+  <button class="mobile-nav-btn" data-view="telemetry">
+    <span>📡</span>
+    <span>Telemetria</span>
+  </button>
+  <button class="mobile-nav-btn" data-view="audit">
+    <span>📋</span>
+    <span>Auditoria</span>
+  </button>
+  <button class="mobile-nav-btn" data-view="architecture">
+    <span>📐</span>
+    <span>Camadas</span>
+  </button>
+  <button class="mobile-nav-btn" data-view="terminal">
+    <span>📟</span>
+    <span>Terminal</span>
+  </button>
+</nav>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-const colors=["#ff5722","#2563eb","#16a34a","#7c3aed","#dc2626","#0891b2","#ca8a04"];
-let idx=0,currentPolyline,lastOrderId=null,marker=null;
+/* ==========================================================================
+   1. COLOR PALETTE & STATE MANAGEMENT
+   ========================================================================== */
+const colors = ["#ff5722", "#2563eb", "#10b981", "#7c3aed", "#ec4899", "#0891b2", "#f59e0b"];
+let idx = 0, currentPolyline = null, lastOrderId = null, marker = null;
+let telemetryMsgCount = 0, auditMsgCount = 0;
+let isLogPaused = false;
 
-const orderColors=new Map();
-function hashColor(str){
-  let h=0;
-  for(let i=0;i<str.length;i++) h=str.charCodeAt(i)+((h<<5)-h);
-  return colors[Math.abs(h)%colors.length];
+const orderColors = new Map();
+function hashColor(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = str.charCodeAt(i) + ((h << 5) - h);
+  return colors[Math.abs(h) % colors.length];
 }
-function colorForOrder(orderId){
-  if(!orderId) return colors[0];
-  if(!orderColors.has(orderId)) orderColors.set(orderId,hashColor(orderId));
+function colorForOrder(orderId) {
+  if (!orderId) return colors[0];
+  if (!orderColors.has(orderId)) orderColors.set(orderId, hashColor(orderId));
   return orderColors.get(orderId);
 }
 
-const map=L.map("map",{zoomControl:true}).setView([-21.7545,-41.3245],15);
-L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",{maxZoom:19,attribution:"&copy; OpenStreetMap &copy; CARTO"}).addTo(map);
+/* ==========================================================================
+   2. LEAFLET MAP INITIALIZATION
+   ========================================================================== */
+const map = L.map("map", { zoomControl: false }).setView([-21.7545, -41.3245], 15);
+L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-const icon=L.divIcon({
-  className:"delivery-icon",
-  html:`<div class="delivery-marker">
+// Tile Layer sem a variável {r} problemática
+const mainTileLayer = L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png", {
+  maxZoom: 19,
+  subdomains: 'abcd',
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+}).addTo(map);
+
+const fallbackTileLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 19,
+  attribution: "&copy; OpenStreetMap"
+});
+
+mainTileLayer.on("tileerror", () => {
+  if (map.hasLayer(mainTileLayer)) {
+    map.removeLayer(mainTileLayer);
+    fallbackTileLayer.addTo(map);
+  }
+});
+
+// Garante o cálculo imediato do tamanho do container
+setTimeout(() => map.invalidateSize(), 50);
+setTimeout(() => map.invalidateSize(), 300);
+setTimeout(() => map.invalidateSize(), 1000);
+
+window.addEventListener("load", () => map.invalidateSize());
+window.addEventListener("resize", () => map.invalidateSize());
+
+const icon = L.divIcon({
+  className: "delivery-icon-wrapper",
+  html: `<div class="delivery-marker">
           <span class="pulse-ring"></span>
           <span class="pulse-ring delay"></span>
           <div class="delivery-avatar">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="5.5" cy="17.5" r="2.4"/>
               <circle cx="18" cy="17.5" r="2.4"/>
               <path d="M5.5 17.5H2.3l1-4.2h3.6l2-3.6h3.8l1.6 3.1h2.3a2 2 0 0 1 2 2v2.7h-2.1"/>
-              <path d="M8.6 9.7h3"/>
-              <path d="M13.8 6.6l2.1 3.1"/>
             </svg>
           </div>
         </div>`,
-  iconSize:[54,54],
-  iconAnchor:[27,27]
+  iconSize: [56, 56],
+  iconAnchor: [28, 28]
 });
 
-function setRouteColor(color){
-  document.getElementById("route-dot").style.background=color;
+function setRouteColor(color) {
+  const dot = document.getElementById("route-dot");
+  if(dot) { dot.style.background = color; dot.style.color = color; }
 }
 
-function newRoute(label){
-  if(currentPolyline) currentPolyline.setStyle({opacity:.22,weight:4});
-  const color=label?colorForOrder(label):colors[idx%colors.length];
-  currentPolyline=L.polyline([],{color,weight:5,opacity:.95,lineCap:"round",dashArray:"1 10",className:"route-flow"}).addTo(map);
+function newRoute(label) {
+  if (currentPolyline) currentPolyline.setStyle({ opacity: 0.2, weight: 4 });
+  const color = label ? colorForOrder(label) : colors[idx % colors.length];
+  currentPolyline = L.polyline([], {
+    color,
+    weight: 5,
+    opacity: 0.95,
+    lineCap: "round"
+  }).addTo(map);
   idx++;
-  document.getElementById("route").textContent=label||("#"+idx);
+  
+  document.getElementById("val-order").textContent = label || ("#" + idx);
+  document.getElementById("tel-card-order").textContent = label || ("#" + idx);
   setRouteColor(color);
 }
 newRoute();
 
-function setConnectionState(el,state,labelConnecting,labelOnline,labelOffline){
-  el.classList.remove("is-online","is-offline","is-connecting");
-  if(state==="online"){el.classList.add("is-online");el.innerHTML=`<span class="status-dot"></span>${labelOnline}`;}
-  else if(state==="offline"){el.classList.add("is-offline");el.innerHTML=`<span class="status-dot"></span>${labelOffline}`;}
-  else{el.classList.add("is-connecting");el.innerHTML=`<span class="status-dot"></span>${labelConnecting}`;}
+/* ==========================================================================
+   3. NAVIGATION & VIEW SWITCHING
+   ========================================================================== */
+function switchView(viewName) {
+  document.querySelectorAll(".nav-tab, .mobile-nav-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.view === viewName);
+  });
+  document.querySelectorAll(".view-section").forEach(sec => {
+    sec.classList.toggle("active", sec.id === `view-${viewName}`);
+  });
+  if (viewName === "map") {
+    setTimeout(() => map.invalidateSize(), 150);
+  }
 }
 
-const statusEl=document.getElementById("status");
-const es=new EventSource("/stream");
-es.onopen=()=>setConnectionState(statusEl,"online","Conectando…","Online","Desconectado");
-es.onerror=()=>setConnectionState(statusEl,"offline","Conectando…","Online","Desconectado");
-es.addEventListener("carMoved",e=>{
-  const data=JSON.parse(e.data);
-  const payload=typeof data.payload==="string"?JSON.parse(data.payload):(data.payload||data);
-  if(payload.orderId){
-    if(lastOrderId && payload.orderId!==lastOrderId) newRoute(payload.orderId);
-    else if(!lastOrderId){
-      document.getElementById("route").textContent=payload.orderId;
+document.querySelectorAll("[data-view]").forEach(btn => {
+  btn.addEventListener("click", () => switchView(btn.dataset.view));
+});
+
+/* ==========================================================================
+   4. SSE CONNECTION: /stream (TELEMETRIA GPS)
+   ========================================================================== */
+function updateStatusBadge(streamType, state) {
+  const dot = document.getElementById(`badge-dot-${streamType}`);
+  const statusTxt = document.getElementById(streamType === "stream" ? "status-telemetry" : "status-audit");
+  
+  if (!dot) return;
+  dot.classList.remove("online", "offline", "connecting");
+  
+  if (state === "online") {
+    dot.classList.add("online");
+    if(statusTxt) statusTxt.innerHTML = `<span class="status-dot online"></span> Conectado (SSE)`;
+  } else if (state === "offline") {
+    dot.classList.add("offline");
+    if(statusTxt) statusTxt.innerHTML = `<span class="status-dot offline"></span> Desconectado`;
+  } else {
+    dot.classList.add("connecting");
+    if(statusTxt) statusTxt.innerHTML = `<span class="status-dot connecting"></span> Conectando...`;
+  }
+}
+
+const es = new EventSource("/stream");
+
+es.onopen = () => {
+  updateStatusBadge("stream", "online");
+  document.getElementById("tel-card-status").textContent = "Online";
+};
+es.onerror = () => {
+  updateStatusBadge("stream", "offline");
+  document.getElementById("tel-card-status").textContent = "Desconectado";
+};
+
+es.addEventListener("carMoved", e => {
+  telemetryMsgCount++;
+  document.getElementById("badge-count-stream").textContent = String(telemetryMsgCount);
+  
+  triggerLayerPulse(["publisher", "backend", "broker", "frontend"]);
+  
+  const data = JSON.parse(e.data);
+  const payload = typeof data.payload === "string" ? JSON.parse(data.payload) : (data.payload || data);
+  
+  logTerminalEntry("GET /stream", "carMoved", e.data, "telemetry");
+  
+  if (payload.orderId) {
+    if (lastOrderId && payload.orderId !== lastOrderId) newRoute(payload.orderId);
+    else if (!lastOrderId) {
+      document.getElementById("val-order").textContent = payload.orderId;
+      document.getElementById("tel-card-order").textContent = payload.orderId;
       setRouteColor(colorForOrder(payload.orderId));
     }
-    lastOrderId=payload.orderId;
+    lastOrderId = payload.orderId;
   }
-  const p=payload.position||payload;
-  const pos=[p.lat,p.lng];
+  
+  const p = payload.position || payload;
+  const pos = [p.lat, p.lng];
   currentPolyline.addLatLng(pos);
-  if(!marker){marker=L.marker(pos,{icon}).addTo(map);map.setView(pos,16);}
-  else{marker.setLatLng(pos);map.panTo(pos,{animate:true,duration:1});}
-  document.getElementById("coords").textContent=`${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`;
-  document.getElementById("distance").textContent=Number.isFinite(payload.remainingDistanceKm)?payload.remainingDistanceKm.toFixed(2)+" km":"--";
-  document.getElementById("time").textContent=new Date().toLocaleTimeString();
+  
+  if (!marker) {
+    marker = L.marker(pos, { icon }).addTo(map);
+    map.setView(pos, 16);
+  } else {
+    marker.setLatLng(pos);
+    map.panTo(pos, { animate: true, duration: 1 });
+  }
+  
+  const formattedCoords = `${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`;
+  const distText = Number.isFinite(payload.remainingDistanceKm) ? payload.remainingDistanceKm.toFixed(2) + " km" : "--";
+  const timeText = new Date().toLocaleTimeString();
+  
+  document.getElementById("val-coords").textContent = formattedCoords;
+  document.getElementById("val-distance").textContent = distText;
+  document.getElementById("val-time").textContent = timeText;
+  document.getElementById("tel-card-dist").textContent = distText;
 });
 
-function formatDuration(ms){
-  if(!Number.isFinite(ms)||ms<0) return "--";
-  const totalSeconds=Math.floor(ms/1000);
-  const minutes=Math.floor(totalSeconds/60);
-  const seconds=totalSeconds%60;
-  return minutes>0?`${minutes}m ${seconds}s`:`${seconds}s`;
+/* ==========================================================================
+   5. SSE CONNECTION: /audit/stream (AUDITORIA AMQP)
+   ========================================================================== */
+const auditDeliveries = new Map();
+
+function formatDuration(ms) {
+  if (!Number.isFinite(ms) || ms < 0) return "--";
+  const sec = Math.floor(ms / 1000);
+  const min = Math.floor(sec / 60);
+  const remSec = sec % 60;
+  return min > 0 ? `${min}m ${remSec}s` : `${remSec}s`;
 }
-function formatTime(iso){
-  const date=new Date(iso);
-  return Number.isNaN(date.getTime())?"--":date.toLocaleTimeString();
+
+function renderAuditList(deliveries) {
+  const hudList = document.getElementById("audit-list");
+  const fullList = document.getElementById("full-audit-list");
+  document.getElementById("audit-total-badge").textContent = String(deliveries.length);
+  
+  if (!deliveries.length) return;
+  
+  const html = deliveries.map(d => {
+    const color = colorForOrder(d.orderId);
+    return `
+      <li class="audit-card">
+        <div class="audit-card-top">
+          <span class="audit-order-id">
+            <span class="route-dot-indicator" style="background:${color}; color:${color}"></span>
+            ${d.orderId}
+          </span>
+          <span class="duration-pill">${formatDuration(d.durationMs)}</span>
+        </div>
+        <div class="audit-card-bottom">
+          <span>${d.routeName || 'Rota Finalizada'}</span>
+          <span>${new Date(d.occurredAt).toLocaleTimeString()}</span>
+        </div>
+      </li>
+    `;
+  }).join("");
+  
+  if(hudList) hudList.innerHTML = html;
+  if(fullList) fullList.innerHTML = html;
 }
-function renderAuditDeliveries(deliveries){
-  const list=document.getElementById("audit-list");
-  const empty=document.getElementById("audit-empty");
-  document.getElementById("audit-count").textContent=String(deliveries.length);
-  list.innerHTML="";
-  if(!deliveries.length){
-    empty.style.display="block";
-    return;
-  }
-  empty.style.display="none";
-  for(const delivery of deliveries){
-    const item=document.createElement("li");
-    const dotColor=colorForOrder(delivery.orderId);
-    item.innerHTML=`
-      <div class="audit-row-top">
-        <span class="audit-order"><span class="route-dot" style="background:${dotColor}"></span>${delivery.orderId}</span>
-        <span class="audit-duration">${formatDuration(delivery.durationMs)}</span>
-      </div>
-      <div class="audit-meta">${delivery.routeName||"Rota"} · ${formatTime(delivery.occurredAt)}</div>`;
-    list.appendChild(item);
-  }
-}
-const auditDeliveries=new Map();
-function upsertAuditDelivery(delivery){
-  auditDeliveries.set(delivery.orderId,delivery);
-  renderAuditDeliveries([...auditDeliveries.values()].sort((a,b)=>new Date(b.occurredAt)-new Date(a.occurredAt)));
-}
-const auditStatusEl=document.getElementById("audit-status");
-const auditEs=new EventSource("/audit/stream");
-auditEs.onopen=()=>setConnectionState(auditStatusEl,"online","Carregando…","Online","Desconectado");
-auditEs.onerror=()=>setConnectionState(auditStatusEl,"offline","Carregando…","Online","Desconectado");
-auditEs.addEventListener("deliveryRecorded",e=>{
-  upsertAuditDelivery(JSON.parse(e.data));
+
+const auditEs = new EventSource("/audit/stream");
+
+auditEs.onopen = () => updateStatusBadge("audit", "online");
+auditEs.onerror = () => updateStatusBadge("audit", "offline");
+
+auditEs.addEventListener("deliveryRecorded", e => {
+  auditMsgCount++;
+  document.getElementById("badge-count-audit").textContent = String(auditMsgCount);
+  
+  triggerLayerPulse(["backend", "broker", "audit", "frontend"]);
+  
+  logTerminalEntry("GET /audit/stream", "deliveryRecorded", e.data, "audit");
+  
+  const delivery = JSON.parse(e.data);
+  auditDeliveries.set(delivery.orderId, delivery);
+  const sorted = [...auditDeliveries.values()].sort((a, b) => new Date(b.occurredAt) - new Date(a.occurredAt));
+  renderAuditList(sorted);
 });
+
+/* ==========================================================================
+   6. TERMINAL & LOG MONITORING
+   ========================================================================== */
+function logTerminalEntry(endpoint, eventName, rawData, type) {
+  if (isLogPaused) return;
+  
+  const logsContainer = document.getElementById("terminal-logs");
+  if (!logsContainer) return;
+  
+  const entry = document.createElement("div");
+  entry.className = `log-entry ${type}`;
+  
+  const time = new Date().toISOString().split("T")[1].slice(0, 12);
+  
+  let formattedData = rawData;
+  try {
+    formattedData = JSON.stringify(JSON.parse(rawData), null, 2);
+  } catch(err) {}
+  
+  entry.innerHTML = `
+    <div class="log-header">
+      <span class="log-event-tag">[${endpoint}] ${eventName}</span>
+      <span class="log-time">${time}</span>
+    </div>
+    <div class="log-data-preview">${formattedData}</div>
+  `;
+  
+  logsContainer.prepend(entry);
+  if (logsContainer.children.length > 50) {
+    logsContainer.removeChild(logsContainer.lastChild);
+  }
+}
+
+document.getElementById("btn-pause-log").addEventListener("click", function() {
+  isLogPaused = !isLogPaused;
+  this.classList.toggle("active", isLogPaused);
+  this.textContent = isLogPaused ? "▶️ Retomar" : "⏸️ Pausar";
+});
+
+function clearLogs() {
+  document.getElementById("terminal-logs").innerHTML = "";
+}
+
+/* ==========================================================================
+   7. LAYER EXPLANATION INTERACTIVE DATA
+   ========================================================================== */
+const layerData = {
+  publisher: {
+    title: "Camada 1: Publisher (Simulador de Telemetria)",
+    tag: "SIMULATOR & TELEMETRY GENERATOR",
+    body: "Serviço responsável por gerar coordenadas GPS ao longo de rotas predefinidas em Campos dos Goytacazes. Simula a entrega enviando requisições HTTP POST para a rota /telemetry do Backend API."
+  },
+  backend: {
+    title: "Camada 2: Backend API (Node.js & Clean Architecture)",
+    tag: "EXPRESS HTTP & USE CASES",
+    body: "Construído sob os princípios da Arquitetura Limpa (Ports & Adapters). O controller da telemetria recebe as coordenadas, aciona o caso de uso ReceiveTelemetry e publica as atualizações no Redis Pub/Sub. Também gerencia a rota de streaming SSE GET /stream."
+  },
+  broker: {
+    title: "Camada 3: Message Brokers (Redis & RabbitMQ)",
+    tag: "EVENT STREAMING & QUEUES",
+    body: "Utiliza Redis Pub/Sub (canal 'car-movements') para streaming ultrarrápido de movimentação GPS, e RabbitMQ AMQP (fila 'audit.order-status') para garantir a entrega confiável das auditorias de pedidos."
+  },
+  audit: {
+    title: "Camada 4: Serviço Audit (Microserviço de Auditoria)",
+    tag: "AMQP CONSUMER & SSE SERVER",
+    body: "Microserviço independente que consome a fila do RabbitMQ, calcula a duração e conformidade da entrega, registra a auditoria e transmite os dados para os clientes conectados no endpoint SSE GET /audit/stream."
+  },
+  frontend: {
+    title: "Camada 5: Frontend (Client Nginx & EventSource API)",
+    tag: "SSE CLIENT & LEAFLET MAP",
+    body: "Aplicação web estática servida via Nginx. Conecta-se diretamente aos fluxos SSE usando a API nativa EventSource do navegador, renderizando o rastro da rota e a auditoria sem necessidade de HTTP Polling."
+  }
+};
+
+function selectLayer(layerId) {
+  const modal = document.getElementById("layer-detail-box");
+  const data = layerData[layerId];
+  if (!data) return;
+  
+  document.getElementById("layer-detail-title").textContent = data.title;
+  document.getElementById("layer-detail-tag").textContent = data.tag;
+  document.getElementById("layer-detail-body").textContent = data.body;
+  modal.classList.add("show");
+}
+
+function triggerLayerPulse(layerIds) {
+  layerIds.forEach(id => {
+    const card = document.getElementById(`layer-${id}`);
+    if (card) {
+      card.classList.add("active-pulse");
+      setTimeout(() => card.classList.remove("active-pulse"), 1000);
+    }
+  });
+}
 </script>
 </body>
 </html>
