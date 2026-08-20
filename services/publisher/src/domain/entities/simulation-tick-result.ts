@@ -1,3 +1,8 @@
+export interface RoutePoint {
+  readonly lat: number;
+  readonly lng: number;
+}
+
 export interface TelemetrySnapshot {
   readonly orderId: string;
   readonly driverId: string;
@@ -5,6 +10,9 @@ export interface TelemetrySnapshot {
   readonly lng: number;
   readonly destinationLat: number;
   readonly destinationLng: number;
+  readonly routeName: string;
+  /** Remaining OSRM geometry still to be traveled, including the current point. */
+  readonly route: readonly RoutePoint[];
 }
 
 export interface CompletedDelivery {

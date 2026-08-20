@@ -176,9 +176,17 @@ Rotas registradas em `services/backend/src/interfaces/http/create-app.ts`:
   "lat": -21.7545,
   "lng": -41.3245,
   "destinationLat": -21.7681,
-  "destinationLng": -41.3392
+  "destinationLng": -41.3392,
+  "routeName": "IFF Centro -> Boulevard Shopping",
+  "route": [
+    { "lat": -21.7545, "lng": -41.3245 },
+    { "lat": -21.7561, "lng": -41.3278 }
+  ]
 }
 ```
+
+`route` e `routeName` são opcionais. `route` é a geometria **ainda a percorrer**
+(OSRM), incluindo o ponto atual. O simulador envia o trecho restante a cada tick.
 
 **Saída** (`TelemetryUpdate`, publicado no Redis e retornado em 202):
 
@@ -188,6 +196,11 @@ Rotas registradas em `services/backend/src/interfaces/http/create-app.ts`:
   "driverId": "simulated-driver-1",
   "position": { "lat": -21.7545, "lng": -41.3245 },
   "destination": { "lat": -21.7681, "lng": -41.3392 },
+  "routeName": "IFF Centro -> Boulevard Shopping",
+  "route": [
+    { "lat": -21.7545, "lng": -41.3245 },
+    { "lat": -21.7561, "lng": -41.3278 }
+  ],
   "remainingDistanceKm": 1.876,
   "receivedAt": "2026-08-06T18:00:00.000Z"
 }
@@ -214,10 +227,11 @@ Arquivo único `frontend/index.html` servido pelo nginx (porta 3000 no Docker).
 | --- | --- |
 | Mapa | Leaflet + tiles CartoDB Voyager |
 | Tempo real | `EventSource("/stream")`, evento `carMoved` |
-| Marcador | Ícone animado (🛵) |
-| Trilha | Polyline colorida por pedido |
+| Marcador | Ícone animado (🛵) e pino de destino |
+| Trilha | Polyline sólida do percurso já feito |
+| Rota planejada | Polyline tracejada com a geometria OSRM ainda a percorrer |
 | Troca de rota | Detectada pela mudança de `orderId`; trilha anterior fica semitransparente |
-| Sidebar | Status SSE, pedido, horário, coordenadas, distância restante |
+| Sidebar | Status SSE, pedido, trecho, horário, coordenadas, distância restante |
 
 O simulador envia `orderId` no formato `simulated-order-N` ao alternar rotas. O frontend usa esse campo para iniciar uma nova polyline sem depender de um campo `routeId` separado.
 

@@ -8,6 +8,9 @@ export interface Telemetry {
   readonly driverId: string;
   readonly position: Coordinates;
   readonly destination: Coordinates;
+  readonly routeName?: string;
+  /** Remaining planned path still to be traveled, including the current position. */
+  readonly route?: readonly Coordinates[];
 }
 
 export interface TelemetryUpdate extends Telemetry {

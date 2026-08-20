@@ -133,9 +133,13 @@ Corpo esperado:
   "lat": 0,
   "lng": 0,
   "destinationLat": 0,
-  "destinationLng": 0
+  "destinationLng": 0,
+  "routeName": "IFF Centro -> Boulevard Shopping",
+  "route": [{ "lat": 0, "lng": 0 }]
 }
 ```
+
+`route` (geometria OSRM restante) e `routeName` são opcionais.
 
 Resposta **202** com o evento enriquecido (`TelemetryUpdate`).
 
@@ -149,6 +153,8 @@ Resposta **202** com o evento enriquecido (`TelemetryUpdate`).
   "driverId": "simulated-driver-1",
   "position": { "lat": -21.7545, "lng": -41.3245 },
   "destination": { "lat": -21.7681, "lng": -41.3392 },
+  "routeName": "IFF Centro -> Boulevard Shopping",
+  "route": [{ "lat": -21.7545, "lng": -41.3245 }],
   "remainingDistanceKm": 1.234,
   "receivedAt": "2026-08-06T18:00:00.000Z"
 }
@@ -166,7 +172,7 @@ Contratos compartilhados ficam em `shared/src/audit/`.
 
 Dashboard em `frontend/index.html` (Leaflet + `EventSource`):
 
-- Mapa com marcador animado e trilha (polyline) por pedido
+- Mapa com marcador animado, pino de destino, trilha percorrida e rota planejada (OSRM)
 - Sidebar com status da conexão, pedido/rota, coordenadas, distância e horário
 - Troca de rota detectada pela mudança de `orderId` no SSE
 - Proxy SSE configurado em `frontend/nginx.conf` (`/stream` → backend)

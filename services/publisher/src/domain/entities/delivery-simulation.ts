@@ -75,7 +75,8 @@ export class DeliverySimulation {
       };
     }
 
-    const [lng, lat] = coordinates[this.stepIndex];
+    const currentIndex = this.stepIndex;
+    const [lng, lat] = coordinates[currentIndex];
     const route = this.currentRoute;
     const [destinationLng, destinationLat] = route.end;
 
@@ -90,6 +91,8 @@ export class DeliverySimulation {
         lng,
         destinationLat,
         destinationLng,
+        routeName: route.name,
+        route: remainingRoute(coordinates, currentIndex),
       },
       progress: {
         routeIndex: this.routeIndex,
@@ -123,4 +126,15 @@ export class DeliverySimulation {
 
     return next;
   }
+}
+
+/** Converts remaining OSRM [lng, lat] points into { lat, lng } for the telemetry API. */
+function remainingRoute(
+  coordinates: RouteCoordinates,
+  fromIndex: number,
+): { readonly lat: number; readonly lng: number }[] {
+  return coordinates.slice(fromIndex).map(([pointLng, pointLat]) => ({
+    lat: pointLat,
+    lng: pointLng,
+  }));
 }

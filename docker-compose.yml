@@ -106,6 +106,7 @@ services:
   frontend:
     image: nginx:alpine
     container_name: frontend
+    restart: unless-stopped
     volumes:
       - ./frontend/index.html:/usr/share/nginx/html/index.html:ro
       - ./frontend/nginx.conf:/etc/nginx/conf.d/default.conf:ro

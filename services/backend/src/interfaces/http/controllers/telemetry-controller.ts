@@ -36,10 +36,36 @@ function parseTelemetry(payload: unknown): Telemetry | undefined {
   const destination = createCoordinates(value.destinationLat, value.destinationLng);
   if (!position || !destination) return undefined;
 
+  const routeName = parseRouteName(value.routeName);
+  const route = parseRoute(value.route);
+
   return {
     orderId: value.orderId,
     driverId: value.driverId,
     position,
     destination,
+    ...(routeName ? { routeName } : {}),
+    ...(route ? { route } : {}),
   };
+}
+
+function parseRouteName(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const name = value.trim();
+  return name || undefined;
+}
+
+function parseRoute(value: unknown): Telemetry['route'] {
+  if (!Array.isArray(value) || value.length === 0) return undefined;
+
+  const points = [];
+  for (const item of value) {
+    if (!item || typeof item !== 'object') return undefined;
+    const point = item as Record<string, unknown>;
+    const coordinates = createCoordinates(Number(point.lat), Number(point.lng));
+    if (!coordinates) return undefined;
+    points.push(coordinates);
+  }
+
+  return points;
 }

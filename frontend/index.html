@@ -347,6 +347,15 @@ body {
   gap: 6px;
 }
 
+#val-route-name {
+  max-width: 190px;
+  text-align: right;
+  white-space: normal;
+  line-height: 1.3;
+  font-size: 11px;
+  display: block;
+}
+
 .route-dot-indicator {
   width: 10px;
   height: 10px;
@@ -449,6 +458,63 @@ body {
   align-items: center;
   justify-content: center;
   box-shadow: var(--shadow-glow-orange), 0 0 0 3px #fff;
+}
+
+.destination-marker {
+  width: 36px;
+  height: 44px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.destination-pin {
+  width: 32px;
+  height: 32px;
+  border-radius: 50% 50% 50% 0;
+  background: linear-gradient(135deg, var(--accent-cyan), #0369a1);
+  transform: rotate(-45deg);
+  box-shadow: var(--shadow-glow-cyan), 0 0 0 3px rgba(255, 255, 255, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.destination-pin span {
+  transform: rotate(45deg);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.map-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-color);
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-secondary);
+}
+
+.legend-line {
+  width: 28px;
+  height: 0;
+  border-top: 4px solid var(--accent-orange);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.legend-line.planned {
+  border-top-style: dashed;
+  border-top-color: var(--accent-cyan);
 }
 
 /* ---------- ARCHITECTURE & LAYERS VIEW ---------- */
@@ -989,6 +1055,10 @@ body {
           <span class="info-value"><span id="route-dot" class="route-dot-indicator" style="background:#ff5722; color:#ff5722;"></span> <span id="val-order">#1</span></span>
         </div>
         <div class="info-row">
+          <span class="info-label">Trecho</span>
+          <span id="val-route-name" class="info-value">Aguardando rota...</span>
+        </div>
+        <div class="info-row">
           <span class="info-label">Último Evento</span>
           <span id="val-time" class="info-value">--:--:--</span>
         </div>
@@ -999,6 +1069,17 @@ body {
         <div class="info-row">
           <span class="info-label">Distância Restante</span>
           <span id="val-distance" class="info-value">-- km</span>
+        </div>
+
+        <div class="map-legend">
+          <div class="legend-item">
+            <span class="legend-line" id="legend-traveled"></span>
+            Percurso realizado
+          </div>
+          <div class="legend-item">
+            <span class="legend-line planned"></span>
+            Rota a seguir
+          </div>
         </div>
       </div>
 
@@ -1263,7 +1344,7 @@ data: {"orderId":"ORD-1","position":{"lat":-21.75,"lng":-41.32}}
    1. COLOR PALETTE & STATE MANAGEMENT
    ========================================================================== */
 const colors = ["#ff5722", "#2563eb", "#10b981", "#7c3aed", "#ec4899", "#0891b2", "#f59e0b"];
-let idx = 0, currentPolyline = null, lastOrderId = null, marker = null;
+let idx = 0, currentPolyline = null, plannedPolyline = null, lastOrderId = null, marker = null, destinationMarker = null;
 let telemetryMsgCount = 0, auditMsgCount = 0;
 let isLogPaused = false;
 
@@ -1329,13 +1410,26 @@ const icon = L.divIcon({
   iconAnchor: [28, 28]
 });
 
+const destIcon = L.divIcon({
+  className: "destination-icon-wrapper",
+  html: `<div class="destination-marker"><div class="destination-pin"><span>📍</span></div></div>`,
+  iconSize: [36, 44],
+  iconAnchor: [18, 40]
+});
+
 function setRouteColor(color) {
   const dot = document.getElementById("route-dot");
   if(dot) { dot.style.background = color; dot.style.color = color; }
+  const legend = document.getElementById("legend-traveled");
+  if (legend) legend.style.borderTopColor = color;
 }
 
 function newRoute(label) {
   if (currentPolyline) currentPolyline.setStyle({ opacity: 0.2, weight: 4 });
+  if (plannedPolyline) {
+    plannedPolyline.setStyle({ opacity: 0.12, weight: 3 });
+    plannedPolyline = null;
+  }
   const color = label ? colorForOrder(label) : colors[idx % colors.length];
   currentPolyline = L.polyline([], {
     color,
@@ -1349,6 +1443,45 @@ function newRoute(label) {
   document.getElementById("tel-card-order").textContent = label || ("#" + idx);
   setRouteColor(color);
 }
+
+function toLatLngs(route) {
+  if (!Array.isArray(route)) return [];
+  return route
+    .filter(point => point && Number.isFinite(point.lat) && Number.isFinite(point.lng))
+    .map(point => [point.lat, point.lng]);
+}
+
+function updatePlannedRoute(route) {
+  const latlngs = toLatLngs(route);
+  if (latlngs.length < 2) return false;
+
+  if (!plannedPolyline) {
+    plannedPolyline = L.polyline(latlngs, {
+      color: "#06b6d4",
+      weight: 5,
+      opacity: 0.8,
+      dashArray: "10, 10",
+      lineCap: "round",
+      lineJoin: "round"
+    }).addTo(map);
+  } else {
+    plannedPolyline.setLatLngs(latlngs);
+  }
+  if (currentPolyline) currentPolyline.bringToFront();
+  return true;
+}
+
+function updateDestination(destination) {
+  if (!destination || !Number.isFinite(destination.lat) || !Number.isFinite(destination.lng)) return;
+  const pos = [destination.lat, destination.lng];
+  if (!destinationMarker) {
+    destinationMarker = L.marker(pos, { icon: destIcon, zIndexOffset: 400 }).addTo(map);
+    destinationMarker.bindTooltip("Destino da entrega", { direction: "top", offset: [0, -12] });
+  } else {
+    destinationMarker.setLatLng(pos);
+  }
+}
+
 newRoute();
 
 /* ==========================================================================
@@ -1414,23 +1547,39 @@ es.addEventListener("carMoved", e => {
   
   logTerminalEntry("GET /stream", "carMoved", e.data, "telemetry");
   
+  const isNewOrder = Boolean(payload.orderId && lastOrderId && payload.orderId !== lastOrderId);
   if (payload.orderId) {
-    if (lastOrderId && payload.orderId !== lastOrderId) newRoute(payload.orderId);
+    if (isNewOrder) newRoute(payload.orderId);
     else if (!lastOrderId) {
+      const color = colorForOrder(payload.orderId);
       document.getElementById("val-order").textContent = payload.orderId;
       document.getElementById("tel-card-order").textContent = payload.orderId;
-      setRouteColor(colorForOrder(payload.orderId));
+      setRouteColor(color);
+      if (currentPolyline) currentPolyline.setStyle({ color });
     }
     lastOrderId = payload.orderId;
+  }
+
+  if (payload.routeName) {
+    document.getElementById("val-route-name").textContent = payload.routeName;
   }
   
   const p = payload.position || payload;
   const pos = [p.lat, p.lng];
   currentPolyline.addLatLng(pos);
+  updatePlannedRoute(payload.route);
+  updateDestination(payload.destination);
   
   if (!marker) {
     marker = L.marker(pos, { icon }).addTo(map);
-    map.setView(pos, 16);
+    if (plannedPolyline) {
+      map.fitBounds(plannedPolyline.getBounds().pad(0.18), { animate: false });
+    } else {
+      map.setView(pos, 16);
+    }
+  } else if (isNewOrder && plannedPolyline) {
+    marker.setLatLng(pos);
+    map.fitBounds(plannedPolyline.getBounds().pad(0.18), { animate: true });
   } else {
     marker.setLatLng(pos);
     map.panTo(pos, { animate: true, duration: 1 });
