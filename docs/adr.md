@@ -1,8 +1,10 @@
-# Registro de Decisões Arquiteturais (ADR)
+# ADR
 
-Este documento registra as decisões vigentes da Plataforma de Rastreamento de
-Veículos e Logística em Tempo Real. A visão dos componentes, contratos e
-fluxos está em [architecture.md](architecture.md).
+Este documento registra as decisões vigentes da plataforma de rastreamento.
+A visão por serviço está em [service-backend.md](service-backend.md),
+[service-audit.md](service-audit.md) e [service-publisher.md](service-publisher.md).
+
+Documentação: [Backend](service-backend.md) · [Audit](service-audit.md) · [Publisher](service-publisher.md) · [ADR](adr.md) · [Links e comandos](links-e-comandos.md)
 
 ## ADR 01 — Atualização do mapa por Server-Sent Events
 
@@ -125,3 +127,12 @@ adaptadores de infraestrutura ou interface.
 - Testes dos casos de uso podem usar implementações falsas das portas.
 - Redis ou AMQP podem ser trocados sem reescrever as regras de negócio.
 - A composição das dependências fica concentrada em `services/*/src/main/main.ts`.
+
+---
+
+## Documentação relacionada
+
+- [service-backend.md](service-backend.md) — API HTTP, Redis Pub/Sub e SSE
+- [service-audit.md](service-audit.md) — consumidor AMQP e API de entregas
+- [service-publisher.md](service-publisher.md) — simulador de rotas
+- [links-e-comandos.md](links-e-comandos.md) — URLs e comandos

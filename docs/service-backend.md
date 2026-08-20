@@ -1,4 +1,8 @@
-# Documentação Arquitetural: Serviço Backend (`@gps-tracking/backend`)
+# Serviço backend
+
+Pacote `@gps-tracking/backend`. Pasta `services/backend`.
+
+Documentação: [Backend](service-backend.md) · [Audit](service-audit.md) · [Publisher](service-publisher.md) · [ADR](adr.md) · [Links e comandos](links-e-comandos.md)
 
 ## 1. Visão Geral e Responsabilidades
 
@@ -109,7 +113,7 @@ O Backend é estruturado seguindo os princípios de **Arquitetura Limpa (Ports a
 
 ## 4. Detalhamento de Entidades e Value Objects (Domain Layer)
 
-### 4.1. `Coordinates` & `distanceKm` ([coordinates.ts](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/backend/src/domain/value-objects/coordinates.ts))
+### 4.1. `Coordinates` & `distanceKm` ([coordinates.ts](../services/backend/src/domain/value-objects/coordinates.ts))
 - **Value Object**: `Coordinates` (`readonly lat: number; readonly lng: number;`).
 - **Validação (`createCoordinates`)**: Verifica se os números são finitos e se estão nos limites geográficos válidos (\(-90 \le lat \le 90\) e \(-180 \le lng \le 180\)).
 - **Cálculo da Distância (`distanceKm`)**: Implementa a fórmula da distância de **Haversine**:
@@ -121,18 +125,18 @@ O Backend é estruturado seguindo os princípios de **Arquitetura Limpa (Ports a
   \]
   Onde \(R = 6371.0088\text{ km}\) é o raio médio da Terra.
 
-### 4.2. `OrderStatus` ([order-status.ts](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/backend/src/domain/value-objects/order-status.ts))
+### 4.2. `OrderStatus` ([order-status.ts](../services/backend/src/domain/value-objects/order-status.ts))
 - Mapeia alias e termos regionalizados para os tipos canônicos de status de pedido (`'ARRIVED_AT_LOCATION'` | `'DELIVERED'`).
 - Mapeamento suportado:
   - `"ARRIVED_AT_LOCATION"` ou `"CHEGOU_NO_LOCAL"` \(\rightarrow\) `'ARRIVED_AT_LOCATION'`
   - `"DELIVERED"` ou `"ENTREGUE"` \(\rightarrow\) `'DELIVERED'`
 
-### 4.3. `Telemetry` & `TelemetryUpdate` ([telemetry.ts](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/backend/src/domain/entities/telemetry.ts))
+### 4.3. `Telemetry` & `TelemetryUpdate` ([telemetry.ts](../services/backend/src/domain/entities/telemetry.ts))
 - **Interface `Telemetry`**: Posição bruta reportada pelo veículo (`orderId`, `driverId`, `position`, `destination`).
 - **Interface `TelemetryUpdate`**: Entidade enriquecida pelo backend contendo `remainingDistanceKm` (arredondada para 3 casas decimais) e `receivedAt` (string ISO 8601).
 - **Função `createTelemetryUpdate(telemetry, receivedAt)`**: Constrói imutavelmente o objeto final de atualização.
 
-### 4.4. `OrderStatusChangeInput` & `createOrderStatusChange` ([order-status-change.ts](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/backend/src/domain/entities/order-status-change.ts))
+### 4.4. `OrderStatusChangeInput` & `createOrderStatusChange` ([order-status-change.ts](../services/backend/src/domain/entities/order-status-change.ts))
 - Cria a estrutura padronizada de evento de auditoria `OrderStatusAudit` adicionando o timestamp exato em que o evento ocorreu no sistema.
 
 ---
@@ -141,25 +145,25 @@ O Backend é estruturado seguindo os princípios de **Arquitetura Limpa (Ports a
 
 | Arquivo / Símbolo | Tipo | Camada | Responsabilidade Principal | Métodos / Funções Chave |
 | --- | --- | --- | --- | --- |
-| [`coordinates.ts`](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/backend/src/domain/value-objects/coordinates.ts) | File / Module | Domain | Define o Value Object de coordenadas e regras de cálculo de distância. | `createCoordinates()`, `distanceKm()` |
-| [`order-status.ts`](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/backend/src/domain/value-objects/order-status.ts) | File / Module | Domain | Normalização de aliases de status de pedidos. | `parseOrderStatus()` |
-| [`telemetry.ts`](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/backend/src/domain/entities/telemetry.ts) | File / Module | Domain | Entidades e regras de montagem de atualizações de telemetria. | `createTelemetryUpdate()` |
-| [`order-status-change.ts`](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/backend/src/domain/entities/order-status-change.ts) | File / Module | Domain | Constrói o evento imutável de auditoria de mudança de status. | `createOrderStatusChange()` |
-| [`car-movement-message.ts`](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/backend/src/application/dto/car-movement-message.ts) | Interface DTO | Application | DTO de transporte da mensagem de movimento (payload em string JSON). | — |
-| [`car-movement-publisher.ts`](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/backend/src/application/ports/car-movement-publisher.ts) | Interface Port | Application | Porta de saída para publicação de movimentações. | `publish(update)` |
-| [`car-movement-subscriber.ts`](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/backend/src/application/ports/car-movement-subscriber.ts) | Interface Port | Application | Porta de saída para assinatura de movimentações via callback. | `subscribe(onMovement)` |
-| [`audit-service.ts`](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/backend/src/application/ports/audit-service.ts) | Interface Port | Application | Porta de saída para comunicação desacoplada com o serviço de auditoria. | `logOrderStatus(event)` |
-| [`receive-telemetry.ts`](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/backend/src/application/use-cases/receive-telemetry.ts) | Class Use Case | Application | Orquestra a recepção, cálculo de distância e publicação de telemetria. | `execute(telemetry)` |
-| [`stream-car-movements.ts`](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/backend/src/application/use-cases/stream-car-movements.ts) | Class Use Case | Application | Orquestra a inscrição contínua no canal de movimentação de veículos. | `execute(onMovement)` |
-| [`update-order-status.ts`](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/backend/src/application/use-cases/update-order-status.ts) | Class Use Case | Application | Orquestra a geração e o envio do evento de mudança de status para auditoria. | `execute(input)` |
-| [`redis-car-movement-publisher.ts`](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/backend/src/infrastructure/redis/redis-car-movement-publisher.ts) | Class Adapter | Infrastructure | Adaptador Redis Pub/Sub que publica JSON string no canal `car-movements`. | `publish(update)` |
-| [`redis-car-movement-subscriber.ts`](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/backend/src/infrastructure/redis/redis-car-movement-subscriber.ts) | Class Adapter | Infrastructure | Adaptador Redis que duplica a conexão (`client.duplicate()`) para assinar o canal de forma não bloqueante. | `subscribe()`, `createRedisClient()` |
-| [`amqp-audit-service.ts`](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/backend/src/infrastructure/amqp/amqp-audit-service.ts) | Class Adapter | Infrastructure | Adaptador AMQP (amqplib) para RabbitMQ. Gerencia conexão/canal com lazy loading e recupera falhas. | `logOrderStatus()`, `getChannel()`, `getConnection()` |
-| [`telemetry-controller.ts`](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/backend/src/interfaces/http/controllers/telemetry-controller.ts) | Class Controller | Interfaces | Controller Express do endpoint `POST /telemetry`. Valida o corpo da requisição HTTP. | `handle()`, `parseTelemetry()` |
-| [`stream-car-movement-controller.ts`](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/backend/src/interfaces/http/controllers/stream-car-movement-controller.ts) | Class Controller | Interfaces | Controller Express de SSE para `GET /stream`. Gerencia headers, keep-alive de 30s e encerramento de conexão. | `handle()` |
-| [`order-status-controller.ts`](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/backend/src/interfaces/http/controllers/order-status-controller.ts) | Class Controller | Interfaces | Controller Express para `POST /orders/:orderId/status`. Valida parâmetros e lança a alteração de status. | `handle()` |
-| [`create-app.ts`](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/backend/src/interfaces/http/create-app.ts) | Function Factory | Interfaces | Instancia a aplicação Express, registra middlewares de CORS e JSON, e configura o roteamento. | `createApp()` |
-| [`main.ts`](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/backend/src/main/main.ts) | Entry Point | Main | Ponto de entrada do serviço. Lê variáveis de ambiente, realiza a injeção de dependências e inicia o servidor. | `bootstrap()` |
+| [`coordinates.ts`](../services/backend/src/domain/value-objects/coordinates.ts) | File / Module | Domain | Define o Value Object de coordenadas e regras de cálculo de distância. | `createCoordinates()`, `distanceKm()` |
+| [`order-status.ts`](../services/backend/src/domain/value-objects/order-status.ts) | File / Module | Domain | Normalização de aliases de status de pedidos. | `parseOrderStatus()` |
+| [`telemetry.ts`](../services/backend/src/domain/entities/telemetry.ts) | File / Module | Domain | Entidades e regras de montagem de atualizações de telemetria. | `createTelemetryUpdate()` |
+| [`order-status-change.ts`](../services/backend/src/domain/entities/order-status-change.ts) | File / Module | Domain | Constrói o evento imutável de auditoria de mudança de status. | `createOrderStatusChange()` |
+| [`car-movement-message.ts`](../services/backend/src/application/dto/car-movement-message.ts) | Interface DTO | Application | DTO de transporte da mensagem de movimento (payload em string JSON). | — |
+| [`car-movement-publisher.ts`](../services/backend/src/application/ports/car-movement-publisher.ts) | Interface Port | Application | Porta de saída para publicação de movimentações. | `publish(update)` |
+| [`car-movement-subscriber.ts`](../services/backend/src/application/ports/car-movement-subscriber.ts) | Interface Port | Application | Porta de saída para assinatura de movimentações via callback. | `subscribe(onMovement)` |
+| [`audit-service.ts`](../services/backend/src/application/ports/audit-service.ts) | Interface Port | Application | Porta de saída para comunicação desacoplada com o serviço de auditoria. | `logOrderStatus(event)` |
+| [`receive-telemetry.ts`](../services/backend/src/application/use-cases/receive-telemetry.ts) | Class Use Case | Application | Orquestra a recepção, cálculo de distância e publicação de telemetria. | `execute(telemetry)` |
+| [`stream-car-movements.ts`](../services/backend/src/application/use-cases/stream-car-movements.ts) | Class Use Case | Application | Orquestra a inscrição contínua no canal de movimentação de veículos. | `execute(onMovement)` |
+| [`update-order-status.ts`](../services/backend/src/application/use-cases/update-order-status.ts) | Class Use Case | Application | Orquestra a geração e o envio do evento de mudança de status para auditoria. | `execute(input)` |
+| [`redis-car-movement-publisher.ts`](../services/backend/src/infrastructure/redis/redis-car-movement-publisher.ts) | Class Adapter | Infrastructure | Adaptador Redis Pub/Sub que publica JSON string no canal `car-movements`. | `publish(update)` |
+| [`redis-car-movement-subscriber.ts`](../services/backend/src/infrastructure/redis/redis-car-movement-subscriber.ts) | Class Adapter | Infrastructure | Adaptador Redis que duplica a conexão (`client.duplicate()`) para assinar o canal de forma não bloqueante. | `subscribe()`, `createRedisClient()` |
+| [`amqp-audit-service.ts`](../services/backend/src/infrastructure/amqp/amqp-audit-service.ts) | Class Adapter | Infrastructure | Adaptador AMQP (amqplib) para RabbitMQ. Gerencia conexão/canal com lazy loading e recupera falhas. | `logOrderStatus()`, `getChannel()`, `getConnection()` |
+| [`telemetry-controller.ts`](../services/backend/src/interfaces/http/controllers/telemetry-controller.ts) | Class Controller | Interfaces | Controller Express do endpoint `POST /telemetry`. Valida o corpo da requisição HTTP. | `handle()`, `parseTelemetry()` |
+| [`stream-car-movement-controller.ts`](../services/backend/src/interfaces/http/controllers/stream-car-movement-controller.ts) | Class Controller | Interfaces | Controller Express de SSE para `GET /stream`. Gerencia headers, keep-alive de 30s e encerramento de conexão. | `handle()` |
+| [`order-status-controller.ts`](../services/backend/src/interfaces/http/controllers/order-status-controller.ts) | Class Controller | Interfaces | Controller Express para `POST /orders/:orderId/status`. Valida parâmetros e lança a alteração de status. | `handle()` |
+| [`create-app.ts`](../services/backend/src/interfaces/http/create-app.ts) | Function Factory | Interfaces | Instancia a aplicação Express, registra middlewares de CORS e JSON, e configura o roteamento. | `createApp()` |
+| [`main.ts`](../services/backend/src/main/main.ts) | Entry Point | Main | Ponto de entrada do serviço. Lê variáveis de ambiente, realiza a injeção de dependências e inicia o servidor. | `bootstrap()` |
 
 ---
 
@@ -167,7 +171,7 @@ O Backend é estruturado seguindo os princípios de **Arquitetura Limpa (Ports a
 
 ### 6.1. Acoplamento e Desacoplamento
 - **Pontos Fortes**: O uso de portas de saída (`CarMovementPublisher`, `AuditService`) garante que trocar a tecnologia de mensageria (ex: trocar Redis por Kafka ou RabbitMQ por gRPC) não altere nenhuma linha de código da camada de aplicação ou domínio.
-- **Isolamento de Conexões Redis**: O adaptador [`RedisCarMovementSubscriber`](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/backend/src/infrastructure/redis/redis-car-movement-subscriber.ts#L14) utiliza `client.duplicate()`. Isso é essencial no Redis, pois quando um cliente entra em modo *Subscribe*, ele não pode executar outros comandos padrão (como `PUBLISH` ou `GET`).
+- **Isolamento de Conexões Redis**: O adaptador [`RedisCarMovementSubscriber`](../services/backend/src/infrastructure/redis/redis-car-movement-subscriber.ts#L14) utiliza `client.duplicate()`. Isso é essencial no Redis, pois quando um cliente entra em modo *Subscribe*, ele não pode executar outros comandos padrão (como `PUBLISH` ou `GET`).
 
 ### 6.2. Escalabilidade Horizontal e Concorrência
 - **Volatilidade do Redis Pub/Sub**: O Redis Pub/Sub é do tipo *fire-and-forget*. Ele não armazena histórico de posições. Se um frontend reconectar via SSE, ele só receberá movimentações ocorridas a partir do instante da conexão.
@@ -177,3 +181,12 @@ O Backend é estruturado seguindo os princípios de **Arquitetura Limpa (Ports a
 ### 6.3. Oportunidades de Refatoração e Melhorias
 1. **Persistência de Última Posição Conhecida**: Para resolver o problema de o frontend inicializar com mapa vazio, pode-se adicionar um armazenamento no Redis Hashes (`HSET driver:location ...`) ao receber a telemetria, permitindo que novos clientes conectados via SSE consultem a posição inicial antes de entrar na transmissão contínua.
 2. **Circuit Breaker / Dead Letter Queue no AMQP**: No `AmqpAuditService`, se a conexão com o RabbitMQ cair durante a execução de uma requisição de status, a promessa pode falhar. Implementar um mecanismo de *retry com exponential backoff* ou buffer em memória evitará perda de eventos de auditoria se o broker ficar temporariamente indisponível.
+
+---
+
+## Documentação relacionada
+
+- [service-audit.md](service-audit.md) — consumidor AMQP e API de entregas
+- [service-publisher.md](service-publisher.md) — simulador de rotas
+- [adr.md](adr.md) — decisões arquiteturais
+- [links-e-comandos.md](links-e-comandos.md) — URLs e comandos

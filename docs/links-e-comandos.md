@@ -1,4 +1,6 @@
-# GPS Tracking — links e comandos
+# Links e comandos
+
+Documentação: [Backend](service-backend.md) · [Audit](service-audit.md) · [Publisher](service-publisher.md) · [ADR](adr.md) · [Links e comandos](links-e-comandos.md)
 
 Padrão igual ao `sales-system` e `blood-match` na VPS: cada app tem a própria rede Docker, nginx na frente e só a porta pública publicada no host.
 
@@ -198,3 +200,12 @@ gps-tracking-rabbitmq
 rede:   gps-tracking_default
 volumes: gps-tracking_redis_data, gps-tracking_rabbitmq_data
 ```
+
+---
+
+## Documentação relacionada
+
+- [service-backend.md](service-backend.md) — API HTTP, Redis Pub/Sub e SSE
+- [service-audit.md](service-audit.md) — consumidor AMQP e API de entregas
+- [service-publisher.md](service-publisher.md) — simulador de rotas
+- [adr.md](adr.md) — decisões arquiteturais

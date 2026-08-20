@@ -1,4 +1,8 @@
-# Documentação Arquitetural: Serviço de Auditoria (`@gps-tracking/audit`)
+# Serviço audit
+
+Pacote `@gps-tracking/audit`. Pasta `services/audit`.
+
+Documentação: [Backend](service-backend.md) · [Audit](service-audit.md) · [Publisher](service-publisher.md) · [ADR](adr.md) · [Links e comandos](links-e-comandos.md)
 
 ## 1. Visão Geral e Responsabilidades
 
@@ -93,7 +97,7 @@ Suas responsabilidades incluem:
 
 ## 4. Detalhamento de Entidades e Validações de Domínio
 
-### 4.1. `OrderStatusAuditEvent` ([order-status-audit-event.ts](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/audit/src/domain/entities/order-status-audit-event.ts))
+### 4.1. `OrderStatusAuditEvent` ([order-status-audit-event.ts](../services/audit/src/domain/entities/order-status-audit-event.ts))
 - **Encapsulamento**: Construtor `private` forçando o uso do método estático de fábrica `OrderStatusAuditEvent.create(input)`.
 - **Invariantes e Regras de Negócio Validadas**:
   1. `orderId`, `driverId` e `occurredAt` devem ser strings não vazias (após `trim()`).
@@ -110,17 +114,17 @@ Suas responsabilidades incluem:
 
 | Arquivo / Símbolo | Tipo | Camada | Responsabilidade Principal | Métodos / Funções Chave |
 | --- | --- | --- | --- | --- |
-| [`order-status-audit-event.ts`](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/audit/src/domain/entities/order-status-audit-event.ts) | Class Entity | Domain | Representação rica do evento de auditoria com validações estritas de domínio. | `create()`, `isDelivery()`, `toDTO()`, `isDeliveryEvent()` |
-| [`audit-event-writer.ts`](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/audit/src/application/ports/audit-event-writer.ts) | Interface Port | Application | Porta de saída para persistência ou logging primário de auditoria. | `write(event)` |
-| [`audit-event-store.ts`](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/audit/src/application/ports/audit-event-store.ts) | Interface Port | Application | Porta para armazenamento e escuta de eventos em memória/banco. | `append()`, `list()`, `subscribe()` |
-| [`record-order-status-audit.ts`](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/audit/src/application/use-cases/record-order-status-audit.ts) | Class Use Case | Application | Caso de uso que valida a mensagem recebida e aciona writer e store. | `execute(input)` |
-| [`list-deliveries.ts`](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/audit/src/application/use-cases/list-deliveries.ts) | Class Use Case | Application | Retorna histórico de entregas concluídas (`DELIVERED`) em ordem cronológica inversa. | `execute()` |
-| [`stream-deliveries.ts`](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/audit/src/application/use-cases/stream-deliveries.ts) | Class Use Case | Application | Transmite entregas históricas e subscreve novas entregas em tempo real via SSE. | `execute(onDelivery)` |
-| [`amqp-order-status-consumer.ts`](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/audit/src/infrastructure/amqp/amqp-order-status-consumer.ts) | Class Adapter | Infrastructure | Adaptador AMQP (amqplib) para RabbitMQ. Gerencia o consumo da fila `audit.order-status` e o ciclo de `ack`/`nack`. | `start()`, `handleMessage()` |
-| [`console-audit-event-writer.ts`](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/audit/src/infrastructure/logging/console-audit-event-writer.ts) | Class Adapter | Infrastructure | Adaptador que grava logs estruturados no `stdout`. | `write(event)` |
-| [`in-memory-audit-event-store.ts`](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/audit/src/infrastructure/storage/in-memory-audit-event-store.ts) | Class Adapter | Infrastructure | Armazena eventos em memória em `Array` interno e gerencia ouvintes em um `Set`. | `append()`, `list()`, `subscribe()` |
-| [`create-audit-http-server.ts`](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/audit/src/interfaces/http/create-audit-http-server.ts) | File / Module | Interfaces | Servidor HTTP nativo Node.js (`node:http`) sem frameworks externos. Provê rotas `/health`, `/audit/deliveries` e `/audit/stream`. | `createAuditHttpServer()`, `handleRequest()`, `handleAuditStream()` |
-| [`main.ts`](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/audit/src/main/main.ts) | Entry Point | Main | Ponto de entrada do serviço. Implementa mecanismo de reconexão (`startConsumerWithRetry`) e inicializa o servidor HTTP na porta 8081. | `bootstrap()`, `startConsumerWithRetry()` |
+| [`order-status-audit-event.ts`](../services/audit/src/domain/entities/order-status-audit-event.ts) | Class Entity | Domain | Representação rica do evento de auditoria com validações estritas de domínio. | `create()`, `isDelivery()`, `toDTO()`, `isDeliveryEvent()` |
+| [`audit-event-writer.ts`](../services/audit/src/application/ports/audit-event-writer.ts) | Interface Port | Application | Porta de saída para persistência ou logging primário de auditoria. | `write(event)` |
+| [`audit-event-store.ts`](../services/audit/src/application/ports/audit-event-store.ts) | Interface Port | Application | Porta para armazenamento e escuta de eventos em memória/banco. | `append()`, `list()`, `subscribe()` |
+| [`record-order-status-audit.ts`](../services/audit/src/application/use-cases/record-order-status-audit.ts) | Class Use Case | Application | Caso de uso que valida a mensagem recebida e aciona writer e store. | `execute(input)` |
+| [`list-deliveries.ts`](../services/audit/src/application/use-cases/list-deliveries.ts) | Class Use Case | Application | Retorna histórico de entregas concluídas (`DELIVERED`) em ordem cronológica inversa. | `execute()` |
+| [`stream-deliveries.ts`](../services/audit/src/application/use-cases/stream-deliveries.ts) | Class Use Case | Application | Transmite entregas históricas e subscreve novas entregas em tempo real via SSE. | `execute(onDelivery)` |
+| [`amqp-order-status-consumer.ts`](../services/audit/src/infrastructure/amqp/amqp-order-status-consumer.ts) | Class Adapter | Infrastructure | Adaptador AMQP (amqplib) para RabbitMQ. Gerencia o consumo da fila `audit.order-status` e o ciclo de `ack`/`nack`. | `start()`, `handleMessage()` |
+| [`console-audit-event-writer.ts`](../services/audit/src/infrastructure/logging/console-audit-event-writer.ts) | Class Adapter | Infrastructure | Adaptador que grava logs estruturados no `stdout`. | `write(event)` |
+| [`in-memory-audit-event-store.ts`](../services/audit/src/infrastructure/storage/in-memory-audit-event-store.ts) | Class Adapter | Infrastructure | Armazena eventos em memória em `Array` interno e gerencia ouvintes em um `Set`. | `append()`, `list()`, `subscribe()` |
+| [`create-audit-http-server.ts`](../services/audit/src/interfaces/http/create-audit-http-server.ts) | File / Module | Interfaces | Servidor HTTP nativo Node.js (`node:http`) sem frameworks externos. Provê rotas `/health`, `/audit/deliveries` e `/audit/stream`. | `createAuditHttpServer()`, `handleRequest()`, `handleAuditStream()` |
+| [`main.ts`](../services/audit/src/main/main.ts) | Entry Point | Main | Ponto de entrada do serviço. Implementa mecanismo de reconexão (`startConsumerWithRetry`) e inicializa o servidor HTTP na porta 8081. | `bootstrap()`, `startConsumerWithRetry()` |
 
 ---
 
@@ -128,14 +132,23 @@ Suas responsabilidades incluem:
 
 ### 6.1. Resiliência do Consumidor AMQP
 - **Tratamento de Mensagens Inválidas (`nack`)**:
-  No arquivo [`amqp-order-status-consumer.ts`](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/audit/src/infrastructure/amqp/amqp-order-status-consumer.ts#L33), quando o JSON é malformado ou falha na validação do domínio (`RecordOrderStatusAudit`), o consumidor executa `channel.nack(message, false, false)`.
+  No arquivo [`amqp-order-status-consumer.ts`](../services/audit/src/infrastructure/amqp/amqp-order-status-consumer.ts#L33), quando o JSON é malformado ou falha na validação do domínio (`RecordOrderStatusAudit`), o consumidor executa `channel.nack(message, false, false)`.
   O segundo parâmetro `requeue: false` instrui o RabbitMQ a **não colocar a mensagem de volta na fila**, evitando loops infinitos de erro de parse.
 - **Bootstrapping Resiliente**:
-  O método [`startConsumerWithRetry`](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/audit/src/main/main.ts#L18) tenta se conectar ao RabbitMQ por até 15 vezes com intervalo de 2 segundos. Isso garante resiliência em ambientes containerizados (Docker Compose / Kubernetes) quando os serviços inicializam em paralelo.
+  O método [`startConsumerWithRetry`](../services/audit/src/main/main.ts#L18) tenta se conectar ao RabbitMQ por até 15 vezes com intervalo de 2 segundos. Isso garante resiliência em ambientes containerizados (Docker Compose / Kubernetes) quando os serviços inicializam em paralelo.
 
 ### 6.2. Arquitetura do Servidor HTTP Nativo (`node:http`)
 - O serviço de auditoria utiliza o módulo nativo `node:http` em vez do Express. Isso reduz a pegada de memória (*memory footprint*) e o tempo de inicialização do container, ideal para serviços puramente focados em processamento de background e APIs simples de consulta.
 
 ### 6.3. Recomendações para Evolução em Produção
-1. **Persistência Relacional / NoSQL**: Substituir o [`InMemoryAuditEventStore`](file:///c:/Users/garde/Desktop/projects/gps-tracking-SSE/services/audit/src/infrastructure/storage/in-memory-audit-event-store.ts) por um repositório PostgreSQL ou MongoDB para manter o histórico de auditoria imutável e durável entre reinicializações do container.
+1. **Persistência Relacional / NoSQL**: Substituir o [`InMemoryAuditEventStore`](../services/audit/src/infrastructure/storage/in-memory-audit-event-store.ts) por um repositório PostgreSQL ou MongoDB para manter o histórico de auditoria imutável e durável entre reinicializações do container.
 2. **Dead Letter Exchange (DLX)**: Configurar no RabbitMQ uma fila de *Dead Letter* para onde mensagens rejeitadas (`nack`) sejam encaminhadas para análise e depuração.
+
+---
+
+## Documentação relacionada
+
+- [service-backend.md](service-backend.md) — API HTTP, Redis Pub/Sub e SSE
+- [service-publisher.md](service-publisher.md) — simulador de rotas
+- [adr.md](adr.md) — decisões arquiteturais
+- [links-e-comandos.md](links-e-comandos.md) — URLs e comandos
