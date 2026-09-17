@@ -6,6 +6,8 @@ import { AmqpOrderStatusConsumer } from '../infrastructure/amqp/amqp-order-statu
 import { PostgresAuditEventStore } from '../infrastructure/storage/postgres-audit-event-store.js';
 import { createPool } from '../infrastructure/db/pool.js';
 import { runMigrations } from '../infrastructure/db/migrate.js';
+import { OutboxRelay } from '../infrastructure/outbox/outbox-relay.js';
+import { AmqpOutboxPublisher } from '../infrastructure/amqp/amqp-outbox-publisher.js';
 import { createAuditHttpServer } from '../interfaces/http/create-audit-http-server.js';
 
 const amqpUrl = process.env.AUDIT_AMQP_URL ?? 'amqp://localhost:5672';
@@ -44,6 +46,9 @@ async function bootstrap(): Promise<void> {
 
   await startConsumerWithRetry(consumer);
   createAuditHttpServer(listDeliveries, streamDeliveries, httpPort);
+
+  const outboxRelay = new OutboxRelay(pool, new AmqpOutboxPublisher(amqpUrl));
+  outboxRelay.start();
 }
 
 void bootstrap().catch((error) => {

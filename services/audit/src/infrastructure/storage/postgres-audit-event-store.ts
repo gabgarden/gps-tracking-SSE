@@ -22,18 +22,37 @@ function toDTO(row: AuditEventRow): OrderStatusAudit {
   };
 }
 
-/** Persists audit events in Postgres; live delivery to subscribers stays in-process. */
+/**
+ * Persists audit events in Postgres. Each append also writes an outbox_event row in the
+ * same transaction (Outbox pattern), so the OutboxRelay can reliably publish an
+ * OrderStatusAudited event without risking a dual write between the DB and the broker.
+ */
 export class PostgresAuditEventStore implements AuditEventStore {
   private readonly listeners = new Set<AuditEventListener>();
 
   constructor(private readonly pool: Pool) {}
 
   async append(event: OrderStatusAudit): Promise<void> {
-    await this.pool.query(
-      `INSERT INTO audit_event (order_id, driver_id, status, occurred_at, route_name, duration_ms)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [event.orderId, event.driverId, event.status, event.occurredAt, event.routeName ?? null, event.durationMs ?? null],
-    );
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `INSERT INTO audit_event (order_id, driver_id, status, occurred_at, route_name, duration_ms)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [event.orderId, event.driverId, event.status, event.occurredAt, event.routeName ?? null, event.durationMs ?? null],
+      );
+      await client.query(
+        `INSERT INTO outbox_event (aggregate_type, aggregate_id, event_type, payload)
+         VALUES ($1, $2, $3, $4)`,
+        ['order_status_audit', event.orderId, 'OrderStatusAudited', JSON.stringify(event)],
+      );
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
 
     for (const listener of this.listeners) {
       listener(event);
