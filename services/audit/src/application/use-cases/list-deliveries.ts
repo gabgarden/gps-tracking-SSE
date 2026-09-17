@@ -5,11 +5,8 @@ import type { AuditEventStore } from '../ports/audit-event-store.js';
 export class ListDeliveries {
   constructor(private readonly store: AuditEventStore) {}
 
-  execute(): readonly OrderStatusAudit[] {
-    return this.store
-      .list()
-      .filter(isDeliveryEvent)
-      .slice()
-      .reverse();
+  async execute(): Promise<readonly OrderStatusAudit[]> {
+    const events = await this.store.list();
+    return events.filter(isDeliveryEvent).slice().reverse();
   }
 }

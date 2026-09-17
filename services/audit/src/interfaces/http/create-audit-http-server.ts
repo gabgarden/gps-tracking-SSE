@@ -28,23 +28,23 @@ async function handleRequest(
   }
 
   if (request.method === 'GET' && url === '/audit/deliveries') {
-    sendJson(response, 200, listDeliveries.execute());
+    sendJson(response, 200, await listDeliveries.execute());
     return;
   }
 
   if (request.method === 'GET' && url === '/audit/stream') {
-    handleAuditStream(request, response, streamDeliveries);
+    await handleAuditStream(request, response, streamDeliveries);
     return;
   }
 
   sendJson(response, 404, { error: 'Not found' });
 }
 
-function handleAuditStream(
+async function handleAuditStream(
   request: IncomingMessage,
   response: ServerResponse,
   streamDeliveries: StreamDeliveries,
-): void {
+): Promise<void> {
   response.writeHead(200, {
     'content-type': 'text/event-stream',
     'cache-control': 'no-cache',
@@ -52,7 +52,7 @@ function handleAuditStream(
   });
   response.flushHeaders?.();
 
-  const unsubscribe = streamDeliveries.execute((delivery) => {
+  const unsubscribe = await streamDeliveries.execute((delivery) => {
     response.write('event: deliveryRecorded\n');
     response.write(`data: ${JSON.stringify(delivery)}\n\n`);
   });

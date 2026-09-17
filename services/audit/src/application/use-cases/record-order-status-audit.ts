@@ -14,6 +14,6 @@ export class RecordOrderStatusAudit {
     const dto = event.toDTO();
 
     await this.writer.write(dto);
-    this.store.append(dto);
+    await this.store.append(dto);
   }
 }

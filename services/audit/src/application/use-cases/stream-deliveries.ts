@@ -7,8 +7,9 @@ export type DeliveryListener = (event: OrderStatusAudit) => void;
 export class StreamDeliveries {
   constructor(private readonly store: AuditEventStore) {}
 
-  execute(onDelivery: DeliveryListener): () => void {
-    for (const event of this.store.list().filter(isDeliveryEvent)) {
+  async execute(onDelivery: DeliveryListener): Promise<() => void> {
+    const events = await this.store.list();
+    for (const event of events.filter(isDeliveryEvent)) {
       onDelivery(event);
     }
 

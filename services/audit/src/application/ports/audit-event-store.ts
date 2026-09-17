@@ -4,7 +4,7 @@ export type AuditEventListener = (event: OrderStatusAudit) => void;
 
 /** Persistence port for audit events. Filtering belongs to the domain/application layers. */
 export interface AuditEventStore {
-  append(event: OrderStatusAudit): void;
-  list(): readonly OrderStatusAudit[];
+  append(event: OrderStatusAudit): Promise<void>;
+  list(): Promise<readonly OrderStatusAudit[]>;
   subscribe(listener: AuditEventListener): () => void;
 }
