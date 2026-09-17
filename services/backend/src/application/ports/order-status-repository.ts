@@ -7,4 +7,5 @@ import type { OrderStatusAudit } from '@gps-tracking/shared/audit';
  */
 export interface OrderStatusRepository {
   save(event: OrderStatusAudit): Promise<void>;
+  findById(orderId: string): Promise<OrderStatusAudit | null>;
 }

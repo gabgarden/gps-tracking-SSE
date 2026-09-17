@@ -39,4 +39,29 @@ export class PostgresOrderStatusRepository implements OrderStatusRepository {
       client.release();
     }
   }
+
+  async findById(orderId: string): Promise<OrderStatusAudit | null> {
+    const { rows } = await this.pool.query<{
+      order_id: string;
+      driver_id: string;
+      status: string;
+      route_name: string | null;
+      duration_ms: string | null;
+      occurred_at: Date;
+    }>(
+      'SELECT order_id, driver_id, status, route_name, duration_ms, occurred_at FROM order_status WHERE order_id = $1',
+      [orderId],
+    );
+    const row = rows[0];
+    if (!row) return null;
+
+    return {
+      orderId: row.order_id,
+      driverId: row.driver_id,
+      status: row.status as OrderStatusAudit['status'],
+      occurredAt: row.occurred_at.toISOString(),
+      routeName: row.route_name ?? undefined,
+      durationMs: row.duration_ms !== null ? Number(row.duration_ms) : undefined,
+    };
+  }
 }

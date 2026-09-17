@@ -1,12 +1,23 @@
 import type { CarMovementPublisher } from '../ports/car-movement-publisher.js';
+import type { Cache } from '../ports/cache.js';
 import { createTelemetryUpdate, type Telemetry, type TelemetryUpdate } from '../../domain/entities/telemetry.js';
 
-/** Receives a driver position, enriches it with domain rules, and publishes it. */
+const CAR_POSITION_CACHE_TTL_SECONDS = 30;
+
+export function carPositionCacheKey(orderId: string): string {
+  return `car_position:${orderId}`;
+}
+
+/** Receives a driver position, enriches it with domain rules, caches it, and publishes it. */
 export class ReceiveTelemetry {
-  constructor(private readonly publisher: CarMovementPublisher) {}
+  constructor(
+    private readonly publisher: CarMovementPublisher,
+    private readonly cache: Cache,
+  ) {}
 
   async execute(telemetry: Telemetry): Promise<TelemetryUpdate> {
     const update = createTelemetryUpdate(telemetry, new Date());
+    await this.cache.set(carPositionCacheKey(update.orderId), update, CAR_POSITION_CACHE_TTL_SECONDS);
     await this.publisher.publish(update);
     return update;
   }
