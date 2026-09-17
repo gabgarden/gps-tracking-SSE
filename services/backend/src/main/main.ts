@@ -15,6 +15,7 @@ import { createPool } from '../infrastructure/db/pool.js';
 import { runMigrations } from '../infrastructure/db/migrate.js';
 import { PostgresOrderStatusRepository } from '../infrastructure/db/postgres-order-status-repository.js';
 import { PostgresOrderStatusAuditOutcomeRepository } from '../infrastructure/db/postgres-order-status-audit-outcome-repository.js';
+import { PostgresCarMovementHistoryRepository } from '../infrastructure/db/postgres-car-movement-history-repository.js';
 import { OutboxRelay } from '../infrastructure/outbox/outbox-relay.js';
 import { AmqpOutboxPublisher } from '../infrastructure/amqp/amqp-outbox-publisher.js';
 import { AmqpOrderStatusOutcomeConsumer } from '../infrastructure/amqp/amqp-order-status-outcome-consumer.js';
@@ -41,7 +42,7 @@ const streamCarMovements = new StreamCarMovements(
 
 const streamCarMovementsController = new StreamCarMovementsController(streamCarMovements);
 const telemetryController = new TelemetryController(
-  new ReceiveTelemetry(new RedisCarMovementPublisher(redisClient), cache),
+  new ReceiveTelemetry(new RedisCarMovementPublisher(redisClient), new PostgresCarMovementHistoryRepository(pool), cache),
 );
 const orderStatusController = new OrderStatusController(new UpdateOrderStatus(orderStatusRepository, cache));
 const getOrderStatusController = new GetOrderStatusController(new GetOrderStatus(orderStatusRepository, cache));
