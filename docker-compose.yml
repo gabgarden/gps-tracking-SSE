@@ -30,6 +30,26 @@ services:
     networks:
       - rede_sse
 
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=gps
+      - POSTGRES_PASSWORD=gps
+      - POSTGRES_DB=gps_audit
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres-init.sql:/docker-entrypoint-initdb.d/postgres-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gps -d gps_audit"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - rede_sse
+
   backend:
     image: node:20-alpine
     container_name: backend
@@ -44,6 +64,7 @@ services:
       - REDIS_URL=redis://redis:6379
       - CAR_MOVEMENTS_CHANNEL=car-movements
       - AUDIT_AMQP_URL=amqp://rabbitmq:5672
+      - BACKEND_DATABASE_URL=postgres://gps:gps@postgres:5432/gps_backend
     healthcheck:
       test:
         [
@@ -61,6 +82,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      postgres:
+        condition: service_healthy
     networks:
       - rede_sse
 
@@ -77,8 +100,11 @@ services:
     environment:
       - AUDIT_AMQP_URL=amqp://rabbitmq:5672
       - AUDIT_HTTP_PORT=8081
+      - AUDIT_DATABASE_URL=postgres://gps:gps@postgres:5432/gps_audit
     depends_on:
       rabbitmq:
+        condition: service_healthy
+      postgres:
         condition: service_healthy
     restart: unless-stopped
     networks:
@@ -122,6 +148,7 @@ services:
 
 volumes:
   node_modules_root:
+  postgres_data:
 
 networks:
   rede_sse:
