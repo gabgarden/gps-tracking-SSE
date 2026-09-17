@@ -1,8 +1,16 @@
 import { connect, type Channel, type ChannelModel } from 'amqplib';
-import { AUDIT_ORDER_STATUS_AUDITED_QUEUE } from '@gps-tracking/shared/audit';
+import {
+  AUDIT_ORDER_STATUS_AUDITED_QUEUE,
+  AUDIT_ORDER_STATUS_FAILED_QUEUE,
+  type OutboxEnvelope,
+} from '@gps-tracking/shared/audit';
 import type { OutboxEventRecord, OutboxPublisher } from '../../application/ports/outbox-publisher.js';
 
-/** Publishes outbox events to the AUDIT_ORDER_STATUS_AUDITED_QUEUE, reconnecting lazily on failure. */
+function queueFor(eventType: string): string {
+  return eventType === 'OrderStatusAuditFailed' ? AUDIT_ORDER_STATUS_FAILED_QUEUE : AUDIT_ORDER_STATUS_AUDITED_QUEUE;
+}
+
+/** Publishes outbox events to the audited/failed queues, reconnecting lazily on failure. */
 export class AmqpOutboxPublisher implements OutboxPublisher {
   private connection?: ChannelModel;
   private channel?: Channel;
@@ -12,7 +20,12 @@ export class AmqpOutboxPublisher implements OutboxPublisher {
 
   async publish(event: OutboxEventRecord): Promise<void> {
     const channel = await this.getChannel();
-    channel.sendToQueue(AUDIT_ORDER_STATUS_AUDITED_QUEUE, Buffer.from(JSON.stringify(event.payload)), {
+    const envelope: OutboxEnvelope<unknown> = {
+      eventId: `audit:${event.aggregateType}:${event.id}`,
+      eventType: event.eventType,
+      payload: event.payload,
+    };
+    channel.sendToQueue(queueFor(event.eventType), Buffer.from(JSON.stringify(envelope)), {
       contentType: 'application/json',
       persistent: true,
     });
@@ -24,6 +37,7 @@ export class AmqpOutboxPublisher implements OutboxPublisher {
     this.channelPromise ??= this.getConnection().then(async (connection) => {
       const channel = await connection.createChannel();
       await channel.assertQueue(AUDIT_ORDER_STATUS_AUDITED_QUEUE, { durable: true });
+      await channel.assertQueue(AUDIT_ORDER_STATUS_FAILED_QUEUE, { durable: true });
       channel.on('close', () => {
         this.channel = undefined;
         this.channelPromise = undefined;

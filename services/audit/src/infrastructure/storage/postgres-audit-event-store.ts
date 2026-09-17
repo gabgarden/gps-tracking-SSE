@@ -1,6 +1,7 @@
 import type { Pool } from 'pg';
 import type { OrderStatusAudit } from '../../domain/entities/order-status-audit-event.js';
 import type { AuditEventListener, AuditEventStore } from '../../application/ports/audit-event-store.js';
+import { claimEventOnce, insertOutboxEvent } from '../db/idempotent-outbox.js';
 
 interface AuditEventRow {
   order_id: string;
@@ -23,29 +24,35 @@ function toDTO(row: AuditEventRow): OrderStatusAudit {
 }
 
 /**
- * Persists audit events in Postgres. Each append also writes an outbox_event row in the
- * same transaction (Outbox pattern), so the OutboxRelay can reliably publish an
- * OrderStatusAudited event without risking a dual write between the DB and the broker.
+ * Persists audit events in Postgres. Each append claims the inbound eventId (Inbox pattern,
+ * dedupes at-least-once redeliveries) and writes an outbox_event row in the same transaction
+ * (Outbox pattern), so the OutboxRelay can reliably publish an OrderStatusAudited event
+ * without a dual write between the DB and the broker.
  */
 export class PostgresAuditEventStore implements AuditEventStore {
   private readonly listeners = new Set<AuditEventListener>();
 
   constructor(private readonly pool: Pool) {}
 
-  async append(event: OrderStatusAudit): Promise<void> {
+  async append(event: OrderStatusAudit, eventId: string): Promise<void> {
     const client = await this.pool.connect();
+    let isNew: boolean;
     try {
       await client.query('BEGIN');
-      await client.query(
-        `INSERT INTO audit_event (order_id, driver_id, status, occurred_at, route_name, duration_ms)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [event.orderId, event.driverId, event.status, event.occurredAt, event.routeName ?? null, event.durationMs ?? null],
-      );
-      await client.query(
-        `INSERT INTO outbox_event (aggregate_type, aggregate_id, event_type, payload)
-         VALUES ($1, $2, $3, $4)`,
-        ['order_status_audit', event.orderId, 'OrderStatusAudited', JSON.stringify(event)],
-      );
+      isNew = await claimEventOnce(client, eventId);
+      if (isNew) {
+        await client.query(
+          `INSERT INTO audit_event (order_id, driver_id, status, occurred_at, route_name, duration_ms)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [event.orderId, event.driverId, event.status, event.occurredAt, event.routeName ?? null, event.durationMs ?? null],
+        );
+        await insertOutboxEvent(client, {
+          aggregateType: 'order_status_audit',
+          aggregateId: event.orderId,
+          eventType: 'OrderStatusAudited',
+          payload: event,
+        });
+      }
       await client.query('COMMIT');
     } catch (error) {
       await client.query('ROLLBACK');
@@ -54,8 +61,10 @@ export class PostgresAuditEventStore implements AuditEventStore {
       client.release();
     }
 
-    for (const listener of this.listeners) {
-      listener(event);
+    if (isNew) {
+      for (const listener of this.listeners) {
+        listener(event);
+      }
     }
   }
 

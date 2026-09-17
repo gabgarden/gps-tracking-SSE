@@ -1,9 +1,11 @@
 import { RecordOrderStatusAudit } from '../application/use-cases/record-order-status-audit.js';
+import { RecordOrderStatusAuditFailure } from '../application/use-cases/record-order-status-audit-failure.js';
 import { ListDeliveries } from '../application/use-cases/list-deliveries.js';
 import { StreamDeliveries } from '../application/use-cases/stream-deliveries.js';
 import { ConsoleAuditEventWriter } from '../infrastructure/logging/console-audit-event-writer.js';
 import { AmqpOrderStatusConsumer } from '../infrastructure/amqp/amqp-order-status-consumer.js';
 import { PostgresAuditEventStore } from '../infrastructure/storage/postgres-audit-event-store.js';
+import { PostgresOutboxWriter } from '../infrastructure/db/postgres-outbox-writer.js';
 import { createPool } from '../infrastructure/db/pool.js';
 import { runMigrations } from '../infrastructure/db/migrate.js';
 import { OutboxRelay } from '../infrastructure/outbox/outbox-relay.js';
@@ -40,9 +42,10 @@ async function bootstrap(): Promise<void> {
 
   const store = new PostgresAuditEventStore(pool);
   const recordOrderStatusAudit = new RecordOrderStatusAudit(new ConsoleAuditEventWriter(), store);
+  const recordOrderStatusAuditFailure = new RecordOrderStatusAuditFailure(new PostgresOutboxWriter(pool));
   const listDeliveries = new ListDeliveries(store);
   const streamDeliveries = new StreamDeliveries(store);
-  const consumer = new AmqpOrderStatusConsumer(amqpUrl, recordOrderStatusAudit);
+  const consumer = new AmqpOrderStatusConsumer(amqpUrl, recordOrderStatusAudit, recordOrderStatusAuditFailure);
 
   await startConsumerWithRetry(consumer);
   createAuditHttpServer(listDeliveries, streamDeliveries, httpPort);

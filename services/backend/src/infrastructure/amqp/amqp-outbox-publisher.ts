@@ -1,5 +1,5 @@
 import { connect, type Channel, type ChannelModel } from 'amqplib';
-import { AUDIT_ORDER_STATUS_QUEUE } from '@gps-tracking/shared/audit';
+import { AUDIT_ORDER_STATUS_QUEUE, type OutboxEnvelope } from '@gps-tracking/shared/audit';
 import type { OutboxEventRecord, OutboxPublisher } from '../../application/ports/outbox-publisher.js';
 
 /** Publishes outbox events to the AUDIT_ORDER_STATUS_QUEUE, reconnecting lazily on failure. */
@@ -12,7 +12,12 @@ export class AmqpOutboxPublisher implements OutboxPublisher {
 
   async publish(event: OutboxEventRecord): Promise<void> {
     const channel = await this.getChannel();
-    channel.sendToQueue(AUDIT_ORDER_STATUS_QUEUE, Buffer.from(JSON.stringify(event.payload)), {
+    const envelope: OutboxEnvelope<unknown> = {
+      eventId: `backend:${event.aggregateType}:${event.id}`,
+      eventType: event.eventType,
+      payload: event.payload,
+    };
+    channel.sendToQueue(AUDIT_ORDER_STATUS_QUEUE, Buffer.from(JSON.stringify(envelope)), {
       contentType: 'application/json',
       persistent: true,
     });

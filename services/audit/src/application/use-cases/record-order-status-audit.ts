@@ -2,18 +2,18 @@ import { OrderStatusAuditEvent, type OrderStatusAudit } from '../../domain/entit
 import type { AuditEventWriter } from '../ports/audit-event-writer.js';
 import type { AuditEventStore } from '../ports/audit-event-store.js';
 
-/** Validates and records an order status audit event. */
+/** Validates and records an order status audit event. Throws on invalid input; callers handle compensation. */
 export class RecordOrderStatusAudit {
   constructor(
     private readonly writer: AuditEventWriter,
     private readonly store: AuditEventStore,
   ) {}
 
-  async execute(input: OrderStatusAudit): Promise<void> {
+  async execute(input: OrderStatusAudit, eventId: string): Promise<void> {
     const event = OrderStatusAuditEvent.create(input);
     const dto = event.toDTO();
 
     await this.writer.write(dto);
-    await this.store.append(dto);
+    await this.store.append(dto, eventId);
   }
 }
