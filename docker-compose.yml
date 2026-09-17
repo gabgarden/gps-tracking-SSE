@@ -41,6 +41,7 @@ services:
       - POSTGRES_DB=gps_audit
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres-init.sql:/docker-entrypoint-initdb.d/postgres-init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U gps -d gps_audit"]
       interval: 5s
@@ -63,6 +64,7 @@ services:
       - REDIS_URL=redis://redis:6379
       - CAR_MOVEMENTS_CHANNEL=car-movements
       - AUDIT_AMQP_URL=amqp://rabbitmq:5672
+      - BACKEND_DATABASE_URL=postgres://gps:gps@postgres:5432/gps_backend
     healthcheck:
       test:
         [
@@ -79,6 +81,8 @@ services:
       redis:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      postgres:
         condition: service_healthy
     networks:
       - rede_sse

@@ -1,19 +1,18 @@
 import { connect, type Channel, type ChannelModel } from 'amqplib';
 import { AUDIT_ORDER_STATUS_QUEUE } from '@gps-tracking/shared/audit';
-import type { AuditService, OrderStatusAudit } from '../../application/ports/audit-service.js';
+import type { OutboxEventRecord, OutboxPublisher } from '../../application/ports/outbox-publisher.js';
 
-/** AMQP adapter that dispatches status changes to the isolated audit service. */
-export class AmqpAuditService implements AuditService {
+/** Publishes outbox events to the AUDIT_ORDER_STATUS_QUEUE, reconnecting lazily on failure. */
+export class AmqpOutboxPublisher implements OutboxPublisher {
   private connection?: ChannelModel;
   private channel?: Channel;
-  private connectionPromise?: Promise<ChannelModel>;
   private channelPromise?: Promise<Channel>;
 
   constructor(private readonly amqpUrl: string) {}
 
-  async logOrderStatus(event: OrderStatusAudit): Promise<void> {
+  async publish(event: OutboxEventRecord): Promise<void> {
     const channel = await this.getChannel();
-    channel.sendToQueue(AUDIT_ORDER_STATUS_QUEUE, Buffer.from(JSON.stringify(event)), {
+    channel.sendToQueue(AUDIT_ORDER_STATUS_QUEUE, Buffer.from(JSON.stringify(event.payload)), {
       contentType: 'application/json',
       persistent: true,
     });
@@ -29,7 +28,7 @@ export class AmqpAuditService implements AuditService {
         this.channel = undefined;
         this.channelPromise = undefined;
       });
-      channel.on('error', (error) => console.error('AMQP audit channel error', error));
+      channel.on('error', (error) => console.error('AMQP outbox channel error', error));
       this.channel = channel;
       return channel;
     });
@@ -40,18 +39,13 @@ export class AmqpAuditService implements AuditService {
   private async getConnection(): Promise<ChannelModel> {
     if (this.connection) return this.connection;
 
-    this.connectionPromise ??= connect(this.amqpUrl).then((connection) => {
-      this.connection = connection;
-      connection.on('close', () => {
-        this.connection = undefined;
-        this.connectionPromise = undefined;
-        this.channel = undefined;
-        this.channelPromise = undefined;
-      });
-      connection.on('error', (error) => console.error('AMQP audit connection error', error));
-      return connection;
+    this.connection = await connect(this.amqpUrl);
+    this.connection.on('close', () => {
+      this.connection = undefined;
+      this.channel = undefined;
+      this.channelPromise = undefined;
     });
-
-    return this.connectionPromise;
+    this.connection.on('error', (error) => console.error('AMQP outbox connection error', error));
+    return this.connection;
   }
 }
